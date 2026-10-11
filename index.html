@@ -4,10 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#edeff3">
+<meta name="theme-color" content="#edeff3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1117" media="(prefers-color-scheme: dark)">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Qué veo hoy">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <title>Qué Veo Hoy</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600&display=swap">
 <style>
@@ -82,6 +87,8 @@
     color: var(--muted); font-size: 0.86rem;
   }
   .notice.error { color: var(--danger); border-color: var(--danger); border-style: solid; }
+  .notice.install { display: flex; flex-direction: column; gap: 10px; border-style: solid; background: var(--surface); }
+  .notice.install p { color: var(--fg); font-size: 0.92rem; }
 
   section { display: flex; flex-direction: column; gap: 10px; }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -101,11 +108,12 @@
   }
   .setup ol { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: 0.9rem; display: flex; flex-direction: column; gap: 4px; }
   .row { display: flex; flex-wrap: wrap; gap: 8px; }
-  input[type="password"], input[type="text"] {
+  input[type="password"], input[type="text"], input[type="search"] {
     font: inherit; color: var(--fg); background: var(--bg);
     border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-height: 44px;
-    flex: 1 1 200px; min-width: 0;
+    flex: 1 1 200px; min-width: 0; -webkit-appearance: none; appearance: none;
   }
+  input[type="search"] { background: var(--surface); width: 100%; border-radius: 999px; padding-inline: 16px; }
   .btn {
     font: inherit; font-weight: 600; cursor: pointer; min-height: 44px;
     background: var(--accent); color: var(--accent-fg); border: 0; border-radius: 10px; padding: 10px 16px;
@@ -153,6 +161,11 @@
   .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
   .badge { font-size: 0.76rem; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
   .badge.own { background: var(--own-bg); border-color: transparent; color: var(--fg); font-weight: 600; }
+  .badge.seen { background: var(--fg); border-color: transparent; color: var(--bg); font-weight: 600; }
+  .seen-btn {
+    font: inherit; font-size: 0.86rem; font-weight: 600; color: var(--accent); background: none; border: 0;
+    padding: 8px 0; min-height: 40px; text-align: left; cursor: pointer; align-self: flex-start;
+  }
 
   .save {
     position: absolute; top: 4px; right: 4px; width: 44px; height: 44px;
@@ -208,6 +221,14 @@
     <button class="link" id="toggle-setup" type="button" aria-expanded="false" aria-controls="setup">Clave TMDB</button>
   </header>
 
+  <div class="notice install" id="install-note" hidden>
+    <p id="install-text"></p>
+    <div class="row">
+      <button class="btn" id="install-btn" type="button" hidden>Instalar</button>
+      <button class="btn quiet" id="install-dismiss" type="button">Ahora no</button>
+    </div>
+  </div>
+
   <p class="notice" id="demo-note" hidden>Ahora ves títulos de ejemplo y la disponibilidad no es real. Añade tu clave de TMDB para ver el catálogo real de España, las sinopsis y los tráilers.</p>
   <p class="notice error" id="status" role="alert" hidden></p>
 
@@ -227,6 +248,8 @@
   </div>
 
   <div class="view" id="view-discover">
+    <input type="search" id="q" placeholder="Buscar película o serie por título" aria-label="Buscar por título" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+
     <div class="seg" id="type" role="group" aria-label="Tipo de contenido">
       <button type="button" data-type="movie" aria-pressed="true">Películas</button>
       <button type="button" data-type="tv" aria-pressed="false">Series</button>
@@ -237,7 +260,7 @@
       <div class="chips" id="platforms"></div>
     </section>
 
-    <section aria-labelledby="h-fil">
+    <section aria-labelledby="h-fil" id="filters-section">
       <h2 id="h-fil">Filtros</h2>
       <div class="filters">
         <div class="field"><label for="genre">Género</label><select id="genre"></select></div>
@@ -251,6 +274,11 @@
       <button class="pick" id="pick" type="button">Sorpréndeme</button>
     </div>
 
+    <div class="chips" id="list-chips">
+      <button class="chip" id="hide-seen" type="button" aria-pressed="true">Ocultar vistas</button>
+      <button class="chip" id="search-mine" type="button" aria-pressed="false" hidden>Solo en mis plataformas</button>
+    </div>
+
     <ul class="list" id="list"></ul>
     <button class="btn quiet more" id="more" type="button" hidden>Cargar más</button>
   </div>
@@ -258,7 +286,10 @@
   <div class="view" id="view-list" hidden>
     <section aria-labelledby="h-wl">
       <h2 id="h-wl">Mi lista</h2>
-      <p class="lead" id="wl-lead"></p>
+      <div class="seg" id="wl-tabs" role="group" aria-label="Estado de los títulos">
+        <button type="button" data-ltab="pending" id="lt-pending" aria-pressed="true">Pendientes</button>
+        <button type="button" data-ltab="seen" id="lt-seen" aria-pressed="false">Vistas</button>
+      </div>
       <div class="chips" id="wl-tools"><button class="chip" id="only-mine" type="button" aria-pressed="false">Solo en mis plataformas</button></div>
     </section>
     <ul class="list" id="wl-list"></ul>
@@ -290,6 +321,8 @@
   var REGION = "ES";
   var K_KEY = "quevehoy.tmdb";
   var K_TYPE = "quevehoy.type";
+  var K_HIDE = "quevehoy.hideSeen";
+  var K_INSTALL = "quevehoy.installDismissed";
   var PROVIDER_LIMIT = 14;
   var BOOKMARK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg>';
 
@@ -376,12 +409,15 @@
     selected: [], showAllProviders: false,
     films: [], total: 0, page: 0, totalPages: 0,
     loading: false, chosen: null, token: 0,
-    list: [], onlyMine: false,
+    searchQ: "", searchMine: false, hideSeen: true,
+    list: [], listTab: "pending", onlyMine: false,
     detail: null, detailData: null, pushed: false, lastFocus: null
   };
   var detailsCache = {};
   var detailsPending = {};
   var listTimer = null;
+  var searchTimer = null;
+  var deferredInstall = null;
 
   var $ = function (id) { return document.getElementById(id); };
   function cfg() { return TYPES[state.type]; }
@@ -404,6 +440,9 @@
   }
   function today() { return new Date().toISOString().slice(0, 10); }
   function showError(msg) { var s = $("status"); s.textContent = msg; s.hidden = !msg; }
+  function plain(s) { return String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); }
+
+  state.hideSeen = load(K_HIDE, true) !== false;
 
   // Plataformas: una sola selección para películas y series
   function selKey() { return state.mode === "demo" ? "quevehoy.sel.demo" : "quevehoy.sel.live"; }
@@ -414,6 +453,7 @@
     var old = load("quevehoy.sel.live.movie", null);
     return Array.isArray(old) ? old : [];
   }
+  function isMine(f) { return f.p !== undefined && f.p.some(function (p) { return state.selected.indexOf(p.id) > -1; }); }
 
   // ---------- API de TMDB ----------
   function isToken(k) { return k.length > 40; }
@@ -511,19 +551,19 @@
     return detailsPending[ck];
   }
 
-  function genreName(id) {
-    var gs = state.meta[state.type] ? state.meta[state.type].genres : [];
+  function genreName(id, type) {
+    var gs = state.meta[type] ? state.meta[type].genres : [];
     for (var i = 0; i < gs.length; i++) if (gs[i].id === String(id)) return gs[i].name;
     return null;
   }
 
-  function normalize(m) {
-    var c = cfg(), cached = detailsCache[state.type + m.id], date = m[c.dateKey];
+  function normalize(m, type) {
+    var c = TYPES[type], cached = detailsCache[type + m.id], date = m[c.dateKey];
     return {
-      type: state.type, id: String(m.id), t: m[c.titleKey] || "", poster: m.poster_path ? IMG + m.poster_path : null,
+      type: type, id: String(m.id), t: m[c.titleKey] || "", poster: m.poster_path ? IMG + m.poster_path : null,
       y: date ? parseInt(date.slice(0, 4), 10) : null,
       r: m.vote_average || 0,
-      g: (m.genre_ids || []).map(genreName).filter(Boolean),
+      g: (m.genre_ids || []).map(function (id) { return genreName(id, type); }).filter(Boolean),
       len: cached ? cached.len : undefined,
       p: cached ? cached.p : undefined
     };
@@ -535,6 +575,7 @@
   function fetchFilms(reset) {
     var token = ++state.token;
     if (reset) { state.page = 0; state.films = []; state.total = 0; state.totalPages = 0; state.chosen = null; }
+    if (state.searchQ) { fetchSearch(token); return; }
     if (state.selected.length === 0) { state.loading = false; render(); return; }
     state.loading = true; showError(""); render();
 
@@ -556,14 +597,14 @@
 
     api(c.discover, params).then(function (data) {
       if (token !== state.token) return;
-      var fresh = (data.results || []).map(normalize);
+      var fresh = (data.results || []).map(function (m) { return normalize(m, type); });
       state.films = state.films.concat(fresh);
       state.page = data.page || state.page + 1;
       state.totalPages = Math.min(data.total_pages || 1, 500);
       state.total = data.total_results || state.films.length;
       state.loading = false;
       render();
-      enrich(type, fresh, token);
+      enrich(fresh, token);
     }).catch(function (e) {
       if (token !== state.token) return;
       state.loading = false;
@@ -572,9 +613,34 @@
     });
   }
 
-  function enrich(type, list, token) {
+  function fetchSearch(token) {
+    state.loading = true; showError(""); render();
+    var q = state.searchQ;
+    Promise.all([loadMeta("movie"), loadMeta("tv")]).then(function () {
+      return api("/search/multi", { query: q, language: "es-ES", include_adult: "false", page: state.page + 1 });
+    }).then(function (data) {
+      if (token !== state.token) return;
+      var fresh = (data.results || []).filter(function (m) {
+        return m.media_type === "movie" || m.media_type === "tv";
+      }).map(function (m) { return normalize(m, m.media_type); });
+      state.films = state.films.concat(fresh);
+      state.page = data.page || state.page + 1;
+      state.totalPages = Math.min(data.total_pages || 1, 500);
+      state.total = state.films.length;
+      state.loading = false;
+      render();
+      enrich(fresh, token);
+    }).catch(function (e) {
+      if (token !== state.token) return;
+      state.loading = false;
+      showError(errorText(e));
+      render();
+    });
+  }
+
+  function enrich(list, token) {
     Promise.all(list.map(function (f) {
-      return details(type, f.id).then(function (d) { f.len = d.len; f.p = d.p; }).catch(function () { if (f.p === undefined) f.p = []; if (f.len === undefined) f.len = ""; });
+      return details(f.type, f.id).then(function (d) { f.len = d.len; f.p = d.p; }).catch(function () { if (f.p === undefined) f.p = []; if (f.len === undefined) f.len = ""; });
     })).then(function () { if (token === state.token) render(); });
   }
 
@@ -582,11 +648,15 @@
   function demoFilms() {
     var g = $("genre").value, d = parseInt($("dur").value, 10), s = $("sort").value;
     var out = DEMO[state.type].filter(function (f) {
-      var mine = f.p.some(function (p) { return state.selected.indexOf(p.id) > -1; });
-      return mine && (!g || f.g.indexOf(g) > -1) && (!d || f.min <= d);
+      return isMine(f) && (!g || f.g.indexOf(g) > -1) && (!d || f.min <= d);
     });
     out.sort(function (a, b) { return s === "min" ? a.min - b.min : b[s] - a[s]; });
     return out;
+  }
+
+  function demoSearch() {
+    var q = plain(state.searchQ);
+    return DEMO.movie.concat(DEMO.tv).filter(function (f) { return plain(f.t).indexOf(q) > -1; });
   }
 
   // ---------- Mi lista ----------
@@ -596,6 +666,7 @@
     var raw = load(listKey(), []);
     state.list = Array.isArray(raw) ? raw.filter(function (x) { return x && x.type && x.id && x.t; }).map(function (x) {
       x.g = Array.isArray(x.g) ? x.g : [];
+      x.seen = x.seen === true;
       return x;
     }) : [];
   }
@@ -603,7 +674,7 @@
   function persistList() {
     var demo = state.mode === "demo";
     save(listKey(), state.list.map(function (x) {
-      var o = { type: x.type, id: x.id, t: x.t, y: x.y, r: x.r, poster: x.poster, g: x.g };
+      var o = { type: x.type, id: x.id, t: x.t, y: x.y, r: x.r, poster: x.poster, g: x.g, seen: x.seen === true };
       if (typeof x.len === "string") o.len = x.len;
       if (demo) o.p = x.p;
       return o;
@@ -615,16 +686,27 @@
     return -1;
   }
   function isSaved(key) { return savedIndex(key) > -1; }
+  function isSeen(key) { var i = savedIndex(key); return i > -1 && state.list[i].seen === true; }
+
+  function snapshot(f, seen) {
+    return { type: f.type, id: f.id, t: f.t, y: f.y, r: f.r, poster: f.poster, g: f.g, len: f.len, p: f.p, seen: seen === true };
+  }
+
+  function afterListChange() {
+    persistList(); updateTab(); syncSaveButtons(); syncSheetActions();
+    if (state.view === "list") renderList(); else render();
+  }
 
   function toggleSave(f) {
     var key = keyOf(f), i = savedIndex(key);
-    if (i > -1) {
-      state.list.splice(i, 1);
-    } else {
-      state.list.unshift({ type: f.type, id: f.id, t: f.t, y: f.y, r: f.r, poster: f.poster, g: f.g, len: f.len, p: f.p });
-    }
-    persistList(); updateTab(); syncSaveButtons(); syncSheetSave();
-    if (state.view === "list") renderList();
+    if (i > -1) state.list.splice(i, 1); else state.list.unshift(snapshot(f, false));
+    afterListChange();
+  }
+
+  function toggleSeen(f) {
+    var key = keyOf(f), i = savedIndex(key);
+    if (i > -1) state.list[i].seen = !state.list[i].seen; else state.list.unshift(snapshot(f, true));
+    afterListChange();
   }
 
   function syncSaveButtons() {
@@ -635,8 +717,10 @@
     });
   }
 
+  function pendingCount() { return state.list.filter(function (x) { return !x.seen; }).length; }
   function updateTab() {
-    $("tab-list").textContent = state.list.length ? "Mi lista · " + state.list.length : "Mi lista";
+    var n = pendingCount();
+    $("tab-list").textContent = n ? "Mi lista · " + n : "Mi lista";
   }
 
   function scheduleListRender() {
@@ -657,22 +741,31 @@
   }
 
   function renderList(skipEnrich) {
-    var items = state.list;
-    if (state.onlyMine) {
-      items = items.filter(function (f) {
-        return f.p === undefined || f.p.some(function (p) { return state.selected.indexOf(p.id) > -1; });
-      });
-    }
-    $("wl-tools").hidden = state.list.length === 0;
+    var pending = state.list.filter(function (x) { return !x.seen; });
+    var seenItems = state.list.filter(function (x) { return x.seen; });
+    var tab = state.listTab;
+
+    $("lt-pending").textContent = "Pendientes" + (pending.length ? " · " + pending.length : "");
+    $("lt-seen").textContent = "Vistas" + (seenItems.length ? " · " + seenItems.length : "");
+    $("lt-pending").setAttribute("aria-pressed", String(tab === "pending"));
+    $("lt-seen").setAttribute("aria-pressed", String(tab === "seen"));
     $("only-mine").setAttribute("aria-pressed", String(state.onlyMine));
-    $("wl-lead").textContent = state.list.length === 0 ? "" :
-      state.list.length + (state.list.length === 1 ? " título guardado" : " títulos guardados");
-    if (state.list.length === 0) {
-      $("wl-list").innerHTML = '<li class="empty">Todavía no has guardado nada. Pulsa el marcador de una película o serie para guardarla aquí.</li>';
-    } else if (items.length === 0) {
-      $("wl-list").innerHTML = '<li class="empty">Ninguno de tus títulos guardados está en tus plataformas ahora mismo.</li>';
+    $("wl-tools").hidden = tab !== "pending" || pending.length === 0;
+
+    var items = tab === "seen" ? seenItems : pending;
+    if (tab === "pending" && state.onlyMine) {
+      items = items.filter(function (f) { return f.p === undefined || isMine(f); });
+    }
+
+    if (items.length === 0) {
+      var msg;
+      if (tab === "seen") msg = "Aún no has marcado nada como visto.";
+      else if (state.list.length === 0) msg = "Todavía no has guardado nada. Pulsa el marcador de una película o serie para guardarla aquí.";
+      else if (pending.length === 0) msg = "No tienes nada pendiente. Lo que ya has visto está en la pestaña Vistas.";
+      else msg = "Ninguno de tus títulos pendientes está en tus plataformas ahora mismo.";
+      $("wl-list").innerHTML = '<li class="empty">' + msg + "</li>";
     } else {
-      $("wl-list").innerHTML = items.map(filmHtml).join("");
+      $("wl-list").innerHTML = items.map(function (f) { return filmHtml(f, true); }).join("");
     }
     if (!skipEnrich) enrichList();
   }
@@ -732,6 +825,17 @@
     $("demo-note").hidden = live;
     $("credit").hidden = !live;
     $("remove-key").hidden = !live;
+    updateSearchUI();
+  }
+
+  function updateSearchUI() {
+    var s = !!state.searchQ;
+    $("type").hidden = s;
+    $("filters-section").hidden = s;
+    $("hide-seen").hidden = s;
+    $("search-mine").hidden = !s;
+    $("hide-seen").setAttribute("aria-pressed", String(state.hideSeen));
+    $("search-mine").setAttribute("aria-pressed", String(state.searchMine));
   }
 
   function posterHtml(f, big) {
@@ -748,6 +852,7 @@
     var meta = [];
     if (f.r) meta.push('<span class="score">' + Number(f.r).toFixed(1) + "</span>");
     if (f.y) meta.push(String(f.y));
+    if (state.searchQ) meta.push(f.type === "tv" ? "Serie" : "Película");
     meta.push(f.len === undefined ? "…" : f.len);
     return meta.filter(Boolean).join(" · ");
   }
@@ -760,38 +865,73 @@
     }).join("");
   }
 
-  function filmHtml(f) {
-    var key = keyOf(f), saved = isSaved(key);
+  function filmHtml(f, inList) {
+    var key = keyOf(f), saved = isSaved(key), seen = isSeen(key);
     return '<li class="film' + (key === state.chosen ? " chosen" : "") + '" data-key="' + esc(key) + '">' + posterHtml(f, false) +
       '<div class="info"><h3><button type="button" class="open">' + esc(f.t) + "</button></h3>" +
       '<p class="meta">' + metaLine(f) + "</p>" +
       (f.g.length ? '<p class="meta">' + esc(f.g.join(", ")) + "</p>" : "") +
-      '<div class="badges">' + badgesHtml(f.p) + "</div></div>" +
+      '<div class="badges">' + (seen ? '<span class="badge seen">Vista</span>' : "") + badgesHtml(f.p) + "</div>" +
+      (inList ? '<button type="button" class="seen-btn" data-act="seen">' + (seen ? "Volver a pendientes" : "Marcar como vista") + "</button>" : "") +
+      "</div>" +
       '<button type="button" class="save" aria-pressed="' + saved + '" aria-label="' + (saved ? "Quitar de mi lista" : "Guardar en mi lista") + '">' + BOOKMARK + "</button></li>";
   }
 
-  function currentFilms() { return state.mode === "demo" ? demoFilms() : state.films; }
+  // Lo que se carga de TMDB (o de los ejemplos) antes de aplicar "ocultar vistas" o "solo en mis plataformas"
+  function baseFilms() {
+    if (state.mode === "demo") return state.searchQ ? demoSearch() : demoFilms();
+    return state.films;
+  }
+
+  function currentFilms() {
+    return baseFilms().filter(function (f) {
+      if (state.searchQ) return !state.searchMine || f.p === undefined || isMine(f);
+      return !(state.hideSeen && isSeen(keyOf(f)));
+    });
+  }
 
   function render() {
-    var c = cfg(), films = currentFilms();
-    var n = state.mode === "demo" ? films.length : state.total;
+    var c = cfg(), base = baseFilms(), films = currentFilms();
+    var live = state.mode === "live", q = state.searchQ;
 
-    if (state.selected.length === 0) {
+    if (q) {
+      if (live && state.loading && base.length === 0) {
+        $("count").textContent = "Buscando…";
+      } else {
+        var more = live && state.page < state.totalPages;
+        $("count").textContent = films.length + (more ? "+" : "") + " " + (films.length === 1 ? "resultado" : "resultados") +
+          (state.searchMine ? " en tus plataformas" : "");
+      }
+    } else if (state.selected.length === 0) {
       $("count").textContent = "Sin plataformas elegidas";
     } else if (state.loading && films.length === 0) {
       $("count").textContent = "Buscando…";
     } else {
-      $("count").textContent = n + " " + (n === 1 ? c.noun : c.plural) + " en tus plataformas";
+      var n = live ? state.total : films.length;
+      var hidden = state.hideSeen ? base.length - films.length : 0;
+      $("count").textContent = n + " " + (n === 1 ? c.noun : c.plural) + " en tus plataformas" +
+        (hidden > 0 ? " · " + hidden + (hidden === 1 ? " vista oculta" : " vistas ocultas") : "");
     }
-    $("pick").hidden = films.length === 0;
-    $("more").hidden = state.mode === "demo" || state.loading || state.page >= state.totalPages || films.length === 0;
 
-    if (state.selected.length === 0) {
+    $("pick").hidden = !!q || films.length === 0;
+    $("more").hidden = !live || state.loading || state.page >= state.totalPages || state.films.length === 0;
+
+    if (!q && state.selected.length === 0) {
       $("list").innerHTML = '<li class="empty">Elige al menos una plataforma para ver qué puedes ver hoy.</li>';
     } else if (films.length === 0 && !state.loading) {
-      $("list").innerHTML = '<li class="empty">No hay ' + c.plural + ' con esos filtros. Prueba con otro género o más duración.</li>';
+      var msg;
+      if (q) {
+        msg = state.searchMine && base.length > 0
+          ? "Ninguno de estos resultados está en tus plataformas. Quita el filtro para verlos todos."
+          : "No hay resultados para «" + esc(q) + "».";
+      } else if (base.length > 0 && state.hideSeen) {
+        msg = "Todo lo que se ha cargado ya lo has visto." + (live ? " Pulsa Cargar más para ver más." : " Quita Ocultar vistas para verlo.");
+      } else {
+        msg = "No hay " + c.plural + " con esos filtros. Prueba con otro género o más duración.";
+      }
+      $("list").innerHTML = '<li class="empty">' + msg + "</li>";
     } else {
-      $("list").innerHTML = films.map(filmHtml).join("");
+      $("list").innerHTML = films.map(function (f) { return filmHtml(f, false); }).join("");
     }
   }
 
@@ -799,25 +939,40 @@
     if (state.mode === "demo") { state.token++; state.chosen = null; render(); } else { fetchFilms(reset); }
   }
 
+  // ---------- Búsqueda ----------
+  function applySearch() {
+    var q = $("q").value.trim();
+    var next = q.length >= 2 ? q : "";
+    if (next === state.searchQ) return;
+    state.searchQ = next;
+    state.chosen = null;
+    updateSearchUI();
+    refresh(true);
+  }
+
   // ---------- Ficha de detalle ----------
   function findFilm(key) {
-    var all = currentFilms().concat(state.list);
+    var all = state.list.concat(currentFilms());
     for (var i = 0; i < all.length; i++) if (keyOf(all[i]) === key) return all[i];
     return null;
   }
 
+  function sheetActions(f, ready, d) {
+    var key = keyOf(f), saved = isSaved(key), seen = isSeen(key);
+    var html = "";
+    if (ready && d.trailer) html += '<button type="button" class="btn" data-act="trailer">Ver tráiler</button>';
+    html += '<button type="button" class="btn quiet' + (saved ? " saved" : "") + '" data-act="save">' + (saved ? "Quitar de mi lista" : "Guardar en mi lista") + "</button>";
+    html += '<button type="button" class="btn quiet' + (seen ? " saved" : "") + '" data-act="seen">' + (seen ? "Quitar de vistas" : "Marcar como vista") + "</button>";
+    return html;
+  }
+
   function sheetHtml(f, st, d) {
-    var key = keyOf(f), saved = isSaved(key);
     var orig = d && d.orig && d.orig !== f.t ? '<p class="meta">Título original: ' + esc(d.orig) + "</p>" : "";
     var len = f.len !== undefined && f.len !== "" ? f.len : (d && d.len);
     var line = [];
     if (f.r) line.push('<span class="score">' + Number(f.r).toFixed(1) + "</span>");
     if (f.y) line.push(String(f.y));
     if (len) line.push(len);
-
-    var actions = '<button type="button" class="btn quiet' + (saved ? " saved" : "") + '" data-act="save">' +
-      (saved ? "Quitar de mi lista" : "Guardar en mi lista") + "</button>";
-    if (st === "ready" && d.trailer) actions = '<button type="button" class="btn" data-act="trailer">Ver tráiler</button>' + actions;
 
     var links = "";
     if (st === "ready") {
@@ -846,7 +1001,7 @@
       '<div class="info"><h2 class="d-title">' + esc(f.t) + "</h2>" + orig +
       '<p class="meta">' + line.join(" · ") + "</p>" +
       (f.g.length ? '<p class="meta">' + esc(f.g.join(", ")) + "</p>" : "") + "</div></div>" +
-      '<div class="actions">' + actions + "</div>" +
+      '<div class="actions" id="sheet-actions">' + sheetActions(f, st === "ready", d) + "</div>" +
       '<div class="trailer" id="trailer" hidden></div>' +
       (links ? '<p class="small">' + links + "</p>" : "") +
       '<div class="block"><h2>Sinopsis</h2><p>' + synopsis + "</p></div>" + where;
@@ -857,13 +1012,16 @@
     $("sheet-body").innerHTML = '<div class="sheet-inner">' + sheetHtml(state.detail, st, d) + "</div>";
   }
 
-  function syncSheetSave() {
+  // Actualiza solo los botones guardar / vista de la ficha, sin tocar el tráiler si ya se está viendo
+  function syncSheetActions() {
     if (!state.detail) return;
-    var b = document.querySelector('#sheet-body [data-act="save"]');
-    if (!b) return;
-    var saved = isSaved(keyOf(state.detail));
-    b.textContent = saved ? "Quitar de mi lista" : "Guardar en mi lista";
-    b.classList.toggle("saved", saved);
+    ["save", "seen"].forEach(function (act) {
+      var b = document.querySelector('#sheet-body [data-act="' + act + '"]');
+      if (!b) return;
+      var on = act === "save" ? isSaved(keyOf(state.detail)) : isSeen(keyOf(state.detail));
+      b.textContent = act === "save" ? (on ? "Quitar de mi lista" : "Guardar en mi lista") : (on ? "Quitar de vistas" : "Marcar como vista");
+      b.classList.toggle("saved", on);
+    });
   }
 
   function openDetail(f) {
@@ -912,7 +1070,7 @@
     Array.prototype.forEach.call(document.querySelectorAll(".tabbar button"), function (b) {
       b.setAttribute("aria-pressed", String(b.getAttribute("data-view") === v));
     });
-    if (v === "list") renderList();
+    if (v === "list") renderList(); else render();
     window.scrollTo(0, 0);
   }
 
@@ -944,6 +1102,39 @@
     $("toggle-setup").setAttribute("aria-expanded", String(open));
   }
 
+  // ---------- Instalar como app ----------
+  function isStandalone() {
+    try { return window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true; } catch (e) { return false; }
+  }
+  function isIos() {
+    var ua = navigator.userAgent || "";
+    return /iphone|ipad|ipod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  }
+  function updateInstall() {
+    var note = $("install-note");
+    if (isStandalone() || load(K_INSTALL, false)) { note.hidden = true; return; }
+    if (deferredInstall) {
+      $("install-text").textContent = "Instala Qué veo hoy para abrirla como una app, con su propio icono.";
+      $("install-btn").hidden = false;
+      note.hidden = false;
+    } else if (isIos()) {
+      $("install-text").textContent = "Para instalarla en el iPhone: pulsa Compartir y luego Añadir a pantalla de inicio.";
+      $("install-btn").hidden = true;
+      note.hidden = false;
+    } else {
+      note.hidden = true;
+    }
+  }
+  window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); deferredInstall = e; updateInstall(); });
+  window.addEventListener("appinstalled", function () { deferredInstall = null; updateInstall(); });
+  $("install-btn").addEventListener("click", function () {
+    if (!deferredInstall) return;
+    var ev = deferredInstall;
+    ev.prompt();
+    Promise.resolve(ev.userChoice).then(function () { deferredInstall = null; updateInstall(); });
+  });
+  $("install-dismiss").addEventListener("click", function () { save(K_INSTALL, true); $("install-note").hidden = true; });
+
   // ---------- Eventos ----------
   $("toggle-setup").addEventListener("click", function () { setSetupOpen($("setup").hidden); });
 
@@ -957,12 +1148,39 @@
     if (!li) return;
     var f = findFilm(li.getAttribute("data-key"));
     if (!f) return;
-    if (e.target.closest(".save")) toggleSave(f); else openDetail(f);
+    if (e.target.closest(".save")) toggleSave(f);
+    else if (e.target.closest(".seen-btn")) toggleSeen(f);
+    else openDetail(f);
   }
   $("list").addEventListener("click", onCardClick);
   $("wl-list").addEventListener("click", onCardClick);
 
+  $("q").addEventListener("input", function () {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(applySearch, 400);
+  });
+  $("q").addEventListener("search", function () { clearTimeout(searchTimer); applySearch(); });
+  $("q").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { clearTimeout(searchTimer); applySearch(); $("q").blur(); }
+  });
+
+  $("hide-seen").addEventListener("click", function () {
+    state.hideSeen = !state.hideSeen;
+    save(K_HIDE, state.hideSeen);
+    updateSearchUI(); render();
+  });
+  $("search-mine").addEventListener("click", function () {
+    state.searchMine = !state.searchMine;
+    updateSearchUI(); render();
+  });
+
   $("only-mine").addEventListener("click", function () { state.onlyMine = !state.onlyMine; renderList(true); });
+  $("wl-tabs").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-ltab]");
+    if (!b) return;
+    state.listTab = b.getAttribute("data-ltab");
+    renderList();
+  });
 
   $("sheet-close").addEventListener("click", function () { closeDetail(false); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeDetail(false); });
@@ -971,9 +1189,12 @@
   $("sheet-body").addEventListener("click", function (e) {
     var b = e.target.closest("button[data-act]");
     if (!b || !state.detail) return;
-    if (b.getAttribute("data-act") === "save") {
+    var act = b.getAttribute("data-act");
+    if (act === "save") {
       toggleSave(state.detail);
-    } else if (b.getAttribute("data-act") === "trailer" && state.detailData && state.detailData.trailer) {
+    } else if (act === "seen") {
+      toggleSeen(state.detail);
+    } else if (act === "trailer" && state.detailData && state.detailData.trailer) {
       var box = $("trailer");
       box.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + esc(state.detailData.trailer) +
         '?rel=0&playsinline=1" title="Tráiler" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
@@ -1049,7 +1270,8 @@
     save(selKey(), state.selected);
     b.setAttribute("aria-pressed", String(i === -1));
     state.chosen = null;
-    refresh(true);
+    // En una búsqueda las plataformas solo cambian qué resultados se resaltan
+    if (state.searchQ) render(); else refresh(true);
   });
 
   ["genre", "dur", "sort"].forEach(function (id) {
@@ -1068,6 +1290,11 @@
   });
 
   // ---------- Arranque ----------
+  updateInstall();
+  if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+    navigator.serviceWorker.register("sw.js").catch(function () {});
+  }
+
   state.key = load(K_KEY, "") || "";
   if (!state.key) {
     startDemo();
