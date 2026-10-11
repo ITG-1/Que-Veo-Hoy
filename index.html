@@ -244,6 +244,11 @@
   .ring .rv { stroke: var(--accent); stroke-linecap: round; }
   .ring b { position: absolute; inset: 0; display: grid; place-items: center; font: 800 0.8rem/1 var(--font-display); }
   .nextep { font-weight: 600; }
+  a.btn { display: inline-flex; align-items: center; text-decoration: none; }
+  .avail { display: flex; flex-wrap: wrap; gap: 8px; }
+  .av { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px 5px 5px; border-radius: 12px; background: var(--surface); border: 2px solid var(--line); font-size: 0.86rem; font-weight: 500; }
+  .av .plogo { width: 32px; height: 32px; border-radius: 8px; }
+  .av.own { border-color: var(--accent); font-weight: 600; }
   .cast { flex: none; width: 82px; display: flex; flex-direction: column; gap: 2px; text-align: center; font-size: 0.78rem; line-height: 1.25; }
   .cast b { font-weight: 600; }
   .cast span { color: var(--muted); }
@@ -776,7 +781,7 @@
     ["flatrate", "free", "ads"].forEach(function (kind) {
       ((r && r[kind]) || []).forEach(function (p) {
         var id = String(p.provider_id);
-        if (!seen[id]) { seen[id] = true; out.push({ id: id, name: p.provider_name }); }
+        if (!seen[id]) { seen[id] = true; out.push({ id: id, name: p.provider_name, logo: p.logo_path && PATH_RE.test(p.logo_path) ? p.logo_path : null }); }
       });
     });
     return out;
@@ -820,7 +825,7 @@
     if (detailsPending[ck]) return detailsPending[ck];
     var c = TYPES[type];
     detailsPending[ck] = api(c.detail + id, {
-      language: "es-ES", append_to_response: "watch/providers,videos,credits,recommendations", include_video_language: "es,en,null"
+      language: "es-ES", append_to_response: "watch/providers,videos,credits,recommendations,external_ids", include_video_language: "es,en,null"
     }).then(function (d) {
       var r = d["watch/providers"] && d["watch/providers"].results && d["watch/providers"].results[REGION];
       var link = r && typeof r.link === "string" && r.link.indexOf("https://") === 0 ? r.link : "";
@@ -833,7 +838,8 @@
         recs: ((d.recommendations && d.recommendations.results) || []).slice(0, 12).map(function (m) { return normalize(m, type); }),
         next: d.next_episode_to_air && d.next_episode_to_air.air_date
           ? { date: d.next_episode_to_air.air_date, s: d.next_episode_to_air.season_number, e: d.next_episode_to_air.episode_number } : null,
-        status: d.status || ""
+        status: d.status || "",
+        imdb: (function () { var id = d.imdb_id || (d.external_ids && d.external_ids.imdb_id) || ""; return /^tt\d+$/.test(id) ? id : ""; })()
       };
       detailsCache[ck] = out;
       delete detailsPending[ck];
@@ -1517,12 +1523,18 @@
     return null;
   }
 
+  function imdbUrl(f, d) {
+    if (d && d.imdb) return "https://www.imdb.com/title/" + d.imdb + "/";
+    return "https://www.imdb.com/find/?s=tt&q=" + encodeURIComponent(f.t + (f.y ? " " + f.y : ""));
+  }
+
   function sheetActions(f, ready, d) {
     var key = keyOf(f), saved = isSaved(key), seen = isSeen(key);
     var html = "";
     if (ready && d.trailer) html += '<button type="button" class="btn" data-act="trailer">Ver tráiler</button>';
     html += '<button type="button" class="btn quiet' + (saved ? " saved" : "") + '" data-act="save">' + (saved ? "Quitar de mi lista" : "Guardar en mi lista") + "</button>";
     html += '<button type="button" class="btn quiet' + (seen ? " saved" : "") + '" data-act="seen">' + (seen ? "Quitar de vistas" : "Marcar como vista") + "</button>";
+    html += '<a class="btn quiet" href="' + esc(imdbUrl(f, ready ? d : null)) + '" target="_blank" rel="noopener">Ver en IMDb</a>';
     return html;
   }
 
@@ -1547,6 +1559,20 @@
         (c.photo ? '<img src="' + esc(c.photo) + '" alt="" loading="lazy">' : esc(c.name.charAt(0))) + "</div><b>" + esc(c.name) + "</b>" +
         (c.ch ? "<span>" + esc(c.ch) + "</span>" : "") + "</li>";
     }).join("") + "</ul></div>";
+  }
+
+  function availHtml(p) {
+    if (p === undefined) return '<span class="small">Buscando plataformas…</span>';
+    if (p.length === 0) return '<span class="small">Sin datos de plataforma en España.</span>';
+    var seen = {}, out = [];
+    p.forEach(function (x) {
+      var k = pkey(x), def = k && PLATFORM_BY_KEY[k], name = def ? def.name : x.name;
+      if (seen[name]) return;
+      seen[name] = true;
+      var own = k && state.selected.indexOf(k) > -1;
+      out.push('<span class="av' + (own ? " own" : "") + '">' + logoHtml({ name: name, logo: x.logo || null }) + "<span>" + esc(name) + "</span></span>");
+    });
+    return out.join("");
   }
 
   function sheetHtml(f, st, d) {
@@ -1577,7 +1603,7 @@
     var plats = st === "ready" ? d.p : (st === "demo" ? f.p : undefined);
     var where = "";
     if (st !== "error") {
-      where = '<div class="block"><h2>Dónde verla en España</h2><div class="badges">' + badgesHtml(plats) + "</div>" +
+      where = '<div class="block"><h2>Disponible en:</h2><div class="avail">' + availHtml(plats) + "</div>" +
         (st === "ready" && d.link ? '<p class="small"><a href="' + esc(d.link) + '" target="_blank" rel="noopener">Ver todas las opciones en TMDB</a></p>' : "") + "</div>";
     }
 
@@ -1596,11 +1622,12 @@
       '<div class="sheet-top">' + posterHtml(f, true) +
       '<div class="info"><h2 class="d-title">' + esc(f.t) + "</h2>" + orig +
       '<div class="dline">' + (f.r ? ringHtml(f.r) : "") + '<p class="meta">' + line.join(" · ") + "</p></div>" + dir + "</div></div>" +
+      where +
       (gs.length ? '<div class="badges">' + gs.map(function (g) { return '<span class="badge">' + esc(g) + "</span>"; }).join("") + "</div>" : "") +
       '<div class="actions" id="sheet-actions">' + sheetActions(f, st === "ready", d) + "</div>" +
       '<div class="trailer" id="trailer" hidden></div>' +
       (links ? '<p class="small">' + links + "</p>" : "") +
-      '<div class="block"><h2>Sinopsis</h2><p>' + synopsis + "</p></div>" + nextBlock + where +
+      '<div class="block"><h2>Sinopsis</h2><p>' + synopsis + "</p></div>" + nextBlock +
       (st === "ready" ? castHtml(d) : "") + similar;
   }
 
@@ -1887,8 +1914,14 @@
   // Si la foto de un actor no carga, se queda su inicial
   $("sheet-body").addEventListener("error", function (e) {
     var img = e.target;
-    if (img && img.tagName === "IMG" && img.parentNode && img.parentNode.classList.contains("cphoto")) {
+    if (!img || img.tagName !== "IMG" || !img.parentNode) return;
+    if (img.parentNode.classList.contains("cphoto")) {
       img.parentNode.textContent = img.parentNode.getAttribute("data-i") || "?";
+    } else if (img.classList.contains("plogo")) {
+      var sp = document.createElement("span"), nm = img.parentNode.textContent || "?";
+      sp.className = "plogo gen"; sp.setAttribute("aria-hidden", "true");
+      sp.style.background = "hsl(" + hue(nm) + " 50% 38%)"; sp.textContent = nm.charAt(0);
+      img.replaceWith(sp);
     }
   }, true);
 
