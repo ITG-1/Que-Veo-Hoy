@@ -99,7 +99,9 @@
     cursor: pointer; min-height: 40px;
   }
   .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
-  .chip.ghost { background: none; color: var(--accent); border-style: dashed; }
+  .chip.plat { display: inline-flex; align-items: center; gap: 8px; padding-left: 8px; }
+  .plogo { width: 24px; height: 24px; border-radius: 6px; object-fit: cover; flex: none; background: var(--line); }
+  .plogo.gen { display: grid; place-items: center; color: #fff; font: 700 0.8rem/1 var(--font-display); }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
   .setup {
@@ -108,12 +110,33 @@
   }
   .setup ol { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: 0.9rem; display: flex; flex-direction: column; gap: 4px; }
   .row { display: flex; flex-wrap: wrap; gap: 8px; }
-  input[type="password"], input[type="text"], input[type="search"] {
+  input[type="password"], input[type="text"] {
     font: inherit; color: var(--fg); background: var(--bg);
     border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-height: 44px;
     flex: 1 1 200px; min-width: 0; -webkit-appearance: none; appearance: none;
   }
-  input[type="search"] { background: var(--surface); width: 100%; border-radius: 999px; padding-inline: 16px; }
+
+  /* Buscador: altura fija de 40px. La lupa pasa al color de acento en cuanto hay texto. */
+  .search { position: relative; display: flex; align-items: center; }
+  .search input {
+    flex: none; width: 100%; height: 40px; min-height: 0; margin: 0;
+    font: inherit; font-size: 16px; /* 16px evita el zoom automático de iOS al enfocar */
+    color: var(--fg); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 999px; padding: 0 40px;
+    -webkit-appearance: none; appearance: none;
+  }
+  .search input::-webkit-search-cancel-button,
+  .search input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
+  .search .glass {
+    position: absolute; left: 14px; width: 18px; height: 18px; pointer-events: none;
+    fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; color: var(--muted);
+  }
+  .search.has-text .glass { color: var(--accent); }
+  .search .clear {
+    position: absolute; right: 4px; width: 32px; height: 32px; display: grid; place-items: center;
+    background: none; border: 0; border-radius: 999px; color: var(--muted); cursor: pointer; padding: 0;
+  }
+  .search .clear svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
   .btn {
     font: inherit; font-weight: 600; cursor: pointer; min-height: 44px;
     background: var(--accent); color: var(--accent-fg); border: 0; border-radius: 10px; padding: 10px 16px;
@@ -248,7 +271,11 @@
   </div>
 
   <div class="view" id="view-discover">
-    <input type="search" id="q" placeholder="Buscar película o serie por título" aria-label="Buscar por título" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+    <div class="search" id="search-box">
+      <svg class="glass" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input type="search" id="q" placeholder="Buscar película o serie" aria-label="Buscar por título" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+      <button type="button" class="clear" id="q-clear" aria-label="Borrar búsqueda" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
 
     <div class="seg" id="type" role="group" aria-label="Tipo de contenido">
       <button type="button" data-type="movie" aria-pressed="true">Películas</button>
@@ -323,7 +350,27 @@
   var K_TYPE = "quevehoy.type";
   var K_HIDE = "quevehoy.hideSeen";
   var K_INSTALL = "quevehoy.installDismissed";
-  var PROVIDER_LIMIT = 14;
+  var LOGO = "https://image.tmdb.org/t/p/w92";
+
+  // Plataformas de España que se ofrecen. Cada una agrupa las variantes que TMDB tenga con otro nombre
+  // (por ejemplo "Netflix Standard with Ads"). Los logos salen de TMDB; si no hay, se dibuja la inicial.
+  var PLATFORMS = [
+    { key: "netflix", name: "Netflix", re: /^netflix( (standard|basic) with ads)?$/ },
+    { key: "prime", name: "Prime Video", re: /^(amazon )?prime video( with ads)?$/ },
+    { key: "disney", name: "Disney+", re: /^disney( plus|\+)$/ },
+    { key: "hbo", name: "HBO Max", re: /^(hbo max|max)$/ },
+    { key: "movistar", name: "Movistar Plus+", re: /^movistar/ },
+    { key: "apple", name: "Apple TV+", re: /^apple tv( plus|\+)?$/ },
+    { key: "sky", name: "SkyShowtime", re: /^sky ?showtime/ },
+    { key: "filmin", name: "Filmin", re: /^filmin/ },
+    { key: "flixole", name: "FlixOlé", re: /^flix ?ol/ },
+    { key: "rtve", name: "RTVE Play", re: /^rtve/ },
+    { key: "atres", name: "Atresplayer", re: /^atres ?player/ },
+    { key: "mitele", name: "Mitele", re: /^(mitele|mediaset)/ },
+    { key: "rakuten", name: "Rakuten TV", re: /^rakuten/ }
+  ];
+  var PLATFORM_BY_KEY = {}, LABEL_TO_KEY = {};
+  PLATFORMS.forEach(function (d) { PLATFORM_BY_KEY[d.key] = d; LABEL_TO_KEY[d.name] = d.key; });
   var BOOKMARK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg>';
 
   // Diferencias entre películas y series en TMDB
@@ -345,30 +392,29 @@
   };
 
   // ---------- Datos de ejemplo (modo sin clave) ----------
-  var DEMO_PLATFORMS = ["Netflix", "Prime Video", "Disney+", "HBO Max", "Movistar+", "Filmin", "SkyShowtime", "RTVE Play"];
   function demoItems(type, prefix, rows, lenFn) {
     return rows.map(function (a, i) {
       return {
         type: type, id: prefix + i, t: a[0], y: a[1], min: a[2], len: lenFn(a), g: a[3], r: a[4], poster: null,
-        p: a[5].map(function (n) { return { id: n, name: n }; })
+        p: a[5].map(function (n) { return { id: LABEL_TO_KEY[n], name: n }; })
       };
     });
   }
   var DEMO = {
     movie: demoItems("movie", "m", [
-      ["Parásitos", 2019, 132, ["Thriller", "Drama"], 8.5, ["Filmin", "Movistar+"]],
-      ["El padrino", 1972, 175, ["Drama", "Crimen"], 9.2, ["Movistar+", "SkyShowtime"]],
+      ["Parásitos", 2019, 132, ["Thriller", "Drama"], 8.5, ["Filmin", "Movistar Plus+"]],
+      ["El padrino", 1972, 175, ["Drama", "Crimen"], 9.2, ["Movistar Plus+", "SkyShowtime"]],
       ["Origen", 2010, 148, ["Ciencia ficción", "Acción"], 8.8, ["Netflix", "HBO Max"]],
-      ["Interstellar", 2014, 169, ["Ciencia ficción", "Drama"], 8.7, ["Prime Video", "Movistar+"]],
+      ["Interstellar", 2014, 169, ["Ciencia ficción", "Drama"], 8.7, ["Prime Video", "Movistar Plus+"]],
       ["El viaje de Chihiro", 2001, 125, ["Animación", "Fantasía"], 8.6, ["Netflix", "Filmin"]],
       ["Coco", 2017, 105, ["Animación", "Familiar"], 8.4, ["Disney+"]],
       ["Dune: Parte dos", 2024, 166, ["Ciencia ficción", "Aventura"], 8.5, ["HBO Max"]],
       ["Oppenheimer", 2023, 180, ["Drama", "Historia"], 8.3, ["Prime Video"]],
-      ["Todo a la vez en todas partes", 2022, 139, ["Ciencia ficción", "Comedia"], 7.8, ["Prime Video", "Movistar+"]],
+      ["Todo a la vez en todas partes", 2022, 139, ["Ciencia ficción", "Comedia"], 7.8, ["Prime Video", "Movistar Plus+"]],
       ["Amélie", 2001, 122, ["Comedia", "Romance"], 8.3, ["Filmin"]],
       ["La La Land", 2016, 128, ["Musical", "Romance"], 8.0, ["Netflix", "SkyShowtime"]],
       ["Mad Max: Furia en la carretera", 2015, 120, ["Acción", "Ciencia ficción"], 8.1, ["HBO Max"]],
-      ["El laberinto del fauno", 2006, 119, ["Fantasía", "Drama"], 8.2, ["Netflix", "Movistar+"]],
+      ["El laberinto del fauno", 2006, 119, ["Fantasía", "Drama"], 8.2, ["Netflix", "Movistar Plus+"]],
       ["Los otros", 2001, 101, ["Terror", "Misterio"], 7.9, ["Prime Video", "RTVE Play"]],
       ["Ocho apellidos vascos", 2014, 98, ["Comedia"], 6.9, ["Netflix", "Prime Video"]],
       ["Toy Story", 1995, 81, ["Animación", "Familiar"], 8.3, ["Disney+"]],
@@ -378,25 +424,30 @@
       ["Pulp Fiction", 1994, 154, ["Crimen", "Thriller"], 8.8, ["Prime Video", "SkyShowtime"]],
       ["Spider-Man: Cruzando el Multiverso", 2023, 140, ["Animación", "Acción"], 8.4, ["Netflix"]],
       ["Ratatouille", 2007, 111, ["Animación", "Comedia"], 8.1, ["Disney+"]],
-      ["Cinema Paradiso", 1988, 124, ["Drama", "Romance"], 8.5, ["Filmin", "Movistar+"]],
+      ["Cinema Paradiso", 1988, 124, ["Drama", "Romance"], 8.5, ["Filmin", "Movistar Plus+"]],
       ["Alien, el octavo pasajero", 1979, 117, ["Terror", "Ciencia ficción"], 8.5, ["Disney+"]],
       ["El hoyo", 2019, 94, ["Thriller", "Ciencia ficción"], 7.0, ["Netflix"]],
-      ["Blade Runner 2049", 2017, 164, ["Ciencia ficción", "Thriller"], 8.0, ["Prime Video", "Movistar+"]],
+      ["Blade Runner 2049", 2017, 164, ["Ciencia ficción", "Thriller"], 8.0, ["Prime Video", "Movistar Plus+"]],
       ["Mamma Mia!", 2008, 108, ["Musical", "Comedia"], 6.5, ["SkyShowtime", "Prime Video"]],
-      ["El gran hotel Budapest", 2014, 99, ["Comedia", "Aventura"], 8.1, ["Disney+", "Movistar+"]]
+      ["El gran hotel Budapest", 2014, 99, ["Comedia", "Aventura"], 8.1, ["Disney+", "Movistar Plus+"]],
+      ["CODA: Los latidos del corazón", 2021, 111, ["Drama", "Comedia"], 8.0, ["Apple TV+"]],
+      ["El verdugo", 1963, 87, ["Comedia", "Drama"], 8.2, ["FlixOlé"]],
+      ["Atraco a las tres", 1962, 90, ["Comedia"], 7.3, ["FlixOlé", "RTVE Play"]]
     ], function (a) { return a[2] + " min"; }),
     // En series, el tercer valor es la duración de cada episodio y el último texto indica las temporadas
     tv: demoItems("tv", "t", [
       ["Breaking Bad", 2008, 47, ["Drama", "Crimen"], 9.5, ["Netflix"], "5 temporadas"],
       ["Los Soprano", 1999, 55, ["Drama", "Crimen"], 9.2, ["HBO Max"], "6 temporadas"],
       ["La casa de papel", 2017, 70, ["Crimen", "Thriller"], 8.2, ["Netflix"], "5 temporadas"],
-      ["Chernobyl", 2019, 65, ["Drama", "Historia"], 9.3, ["HBO Max", "Movistar+"], "1 temporada"],
-      ["Succession", 2018, 60, ["Drama", "Comedia"], 8.8, ["HBO Max", "Movistar+"], "4 temporadas"],
+      ["Chernobyl", 2019, 65, ["Drama", "Historia"], 9.3, ["HBO Max", "Movistar Plus+"], "1 temporada"],
+      ["Succession", 2018, 60, ["Drama", "Comedia"], 8.8, ["HBO Max", "Movistar Plus+"], "4 temporadas"],
       ["Stranger Things", 2016, 50, ["Ciencia ficción", "Misterio"], 8.6, ["Netflix"], "5 temporadas"],
-      ["Merlí", 2015, 50, ["Drama", "Comedia"], 8.0, ["Filmin", "Movistar+"], "3 temporadas"],
+      ["Merlí", 2015, 50, ["Drama", "Comedia"], 8.0, ["Filmin", "Movistar Plus+"], "3 temporadas"],
       ["Fleabag", 2016, 27, ["Comedia", "Drama"], 8.7, ["Prime Video"], "2 temporadas"],
       ["The Bear", 2022, 30, ["Drama", "Comedia"], 8.4, ["Disney+"], "3 temporadas"],
-      ["Ozark", 2017, 60, ["Crimen", "Thriller"], 8.5, ["Netflix"], "4 temporadas"]
+      ["Ozark", 2017, 60, ["Crimen", "Thriller"], 8.5, ["Netflix"], "4 temporadas"],
+      ["Ted Lasso", 2020, 30, ["Comedia", "Drama"], 8.8, ["Apple TV+"], "3 temporadas"],
+      ["Cuéntame cómo pasó", 2001, 70, ["Drama", "Comedia"], 7.6, ["RTVE Play"], "25 temporadas"]
     ], function (a) { return a[6]; })
   };
 
@@ -406,7 +457,7 @@
   var state = {
     key: "", mode: "demo", type: savedType === "tv" ? "tv" : "movie", view: "discover",
     meta: { movie: null, tv: null },
-    selected: [], showAllProviders: false,
+    selected: [], idToKey: {},
     films: [], total: 0, page: 0, totalPages: 0,
     loading: false, chosen: null, token: 0,
     searchQ: "", searchMine: false, hideSeen: true,
@@ -446,14 +497,32 @@
 
   // Plataformas: una sola selección para películas y series
   function selKey() { return state.mode === "demo" ? "quevehoy.sel.demo" : "quevehoy.sel.live"; }
-  function loadSelected() {
-    if (state.mode === "demo") return load("quevehoy.sel.demo", ["Netflix", "Prime Video", "Filmin"]);
-    var own = load("quevehoy.sel.live", null);
-    if (Array.isArray(own)) return own;
-    var old = load("quevehoy.sel.live.movie", null);
-    return Array.isArray(old) ? old : [];
+  // La selección guarda claves de plataforma ("netflix"). Se aceptan también los ids numéricos de TMDB
+  // y los nombres que se guardaron en versiones anteriores, y se convierten.
+  function normSel(arr) {
+    var out = [];
+    (Array.isArray(arr) ? arr : []).forEach(function (v) {
+      var k = PLATFORM_BY_KEY[v] ? v : (LABEL_TO_KEY[v] || state.idToKey[v]);
+      if (k && out.indexOf(k) === -1) out.push(k);
+    });
+    return out;
   }
-  function isMine(f) { return f.p !== undefined && f.p.some(function (p) { return state.selected.indexOf(p.id) > -1; }); }
+  function loadSelected() {
+    if (state.mode === "demo") return normSel(load("quevehoy.sel.demo", ["netflix", "prime", "filmin"]));
+    var own = load("quevehoy.sel.live", null);
+    if (Array.isArray(own)) return normSel(own);
+    return normSel(load("quevehoy.sel.live.movie", null));
+  }
+  // Clave de plataforma de un proveedor que devuelve TMDB (o de un ejemplo); null si no es una de las nuestras
+  function pkey(p) { return PLATFORM_BY_KEY[p.id] ? p.id : (state.idToKey[p.id] || null); }
+  function isMine(f) { return f.p !== undefined && f.p.some(function (p) { return state.selected.indexOf(pkey(p)) > -1; }); }
+  // Ids de TMDB que corresponden a las plataformas elegidas, para el tipo actual
+  function selectedIds(type) {
+    var out = [];
+    state.meta[type].groups.forEach(function (g) { if (state.selected.indexOf(g.key) > -1) out = out.concat(g.ids); });
+    return out;
+  }
+  function hasPlatforms() { return state.mode === "demo" ? state.selected.length > 0 : selectedIds(state.type).length > 0; }
 
   // ---------- API de TMDB ----------
   function isToken(k) { return k.length > 40; }
@@ -494,8 +563,20 @@
         return typeof d === "number" ? d : (typeof p.display_priority === "number" ? p.display_priority : 999);
       }
       list.sort(function (a, b) { return prio(a) - prio(b); });
+      // Solo las plataformas de nuestra lista que TMDB tiene en España, con todas sus variantes
+      var groups = PLATFORMS.map(function (def) {
+        var m = list.filter(function (p) { return def.re.test(plain(p.provider_name || "").replace(/\s+/g, " ").trim()); });
+        if (!m.length) return null;
+        var lp = m[0].logo_path || "";
+        return {
+          key: def.key, name: def.name,
+          ids: m.map(function (p) { return String(p.provider_id); }),
+          logo: /^\/[\w.-]+$/.test(lp) ? lp : null
+        };
+      }).filter(Boolean);
+      groups.forEach(function (g) { g.ids.forEach(function (id) { state.idToKey[id] = g.key; }); });
       state.meta[type] = {
-        providers: list.slice(0, 80).map(function (p) { return { id: String(p.provider_id), name: p.provider_name }; }),
+        groups: groups,
         genres: (res[1].genres || []).map(function (g) { return { id: String(g.id), name: g.name }; })
       };
     });
@@ -576,7 +657,7 @@
     var token = ++state.token;
     if (reset) { state.page = 0; state.films = []; state.total = 0; state.totalPages = 0; state.chosen = null; }
     if (state.searchQ) { fetchSearch(token); return; }
-    if (state.selected.length === 0) { state.loading = false; render(); return; }
+    if (!hasPlatforms()) { state.loading = false; render(); return; }
     state.loading = true; showError(""); render();
 
     var c = cfg(), type = state.type;
@@ -584,7 +665,7 @@
     var sortApi = { pop: "popularity.desc", r: "vote_average.desc", y: c.sortRecent }[sort] || "popularity.desc";
     var params = {
       watch_region: REGION,
-      with_watch_providers: state.selected.join("|"),
+      with_watch_providers: selectedIds(type).join("|"),
       with_watch_monetization_types: "flatrate|free|ads",
       language: "es-ES", include_adult: "false",
       sort_by: sortApi,
@@ -778,26 +859,22 @@
     if (current !== undefined && options.some(function (o) { return o[0] === current; })) el.value = current;
   }
 
-  function providerList() {
-    return state.mode === "live" ? state.meta[state.type].providers : DEMO_PLATFORMS.map(function (n) { return { id: n, name: n }; });
+  function groupList() {
+    if (state.mode === "live") return state.meta[state.type].groups;
+    return PLATFORMS.map(function (d) { return { key: d.key, name: d.name, ids: [d.key], logo: null }; });
+  }
+
+  function logoHtml(g) {
+    if (g.logo) return '<img class="plogo" src="' + LOGO + esc(g.logo) + '" alt="" width="24" height="24" loading="lazy">';
+    return '<span class="plogo gen" style="background:hsl(' + hue(g.name) + ' 50% 38%)" aria-hidden="true">' + esc(g.name.charAt(0)) + "</span>";
   }
 
   function renderPlatforms() {
-    var provs = providerList(), vis = provs;
-    if (!state.showAllProviders && provs.length > PROVIDER_LIMIT) {
-      vis = provs.filter(function (p, i) { return i < PROVIDER_LIMIT || state.selected.indexOf(p.id) > -1; });
-    }
-    var html = vis.map(function (p) {
-      var on = state.selected.indexOf(p.id) > -1;
-      return '<button type="button" class="chip" aria-pressed="' + on + '" data-p="' + esc(p.id) + '">' + esc(p.name) + "</button>";
+    $("platforms").innerHTML = groupList().map(function (g) {
+      var on = state.selected.indexOf(g.key) > -1;
+      return '<button type="button" class="chip plat" aria-pressed="' + on + '" data-p="' + esc(g.key) + '">' +
+        logoHtml(g) + "<span>" + esc(g.name) + "</span></button>";
     }).join("");
-    var hidden = provs.length - vis.length;
-    if (state.showAllProviders && provs.length > PROVIDER_LIMIT) {
-      html += '<button type="button" class="chip ghost" data-more="1">Menos plataformas</button>';
-    } else if (hidden > 0) {
-      html += '<button type="button" class="chip ghost" data-more="1">Más plataformas (' + hidden + ")</button>";
-    }
-    $("platforms").innerHTML = html;
   }
 
   function renderControls() {
@@ -860,9 +937,14 @@
   function badgesHtml(p) {
     if (p === undefined) return '<span class="badge">Buscando plataformas…</span>';
     if (p.length === 0) return '<span class="badge">Sin datos de plataforma</span>';
-    return p.map(function (x) {
-      return '<span class="badge' + (state.selected.indexOf(x.id) > -1 ? " own" : "") + '">' + esc(x.name) + "</span>";
-    }).join("");
+    var seen = {}, out = [];
+    p.forEach(function (x) {
+      var k = pkey(x), name = k ? PLATFORM_BY_KEY[k].name : x.name;
+      if (seen[name]) return; // variantes de una misma plataforma (p. ej. Netflix con anuncios) salen una sola vez
+      seen[name] = true;
+      out.push('<span class="badge' + (k && state.selected.indexOf(k) > -1 ? " own" : "") + '">' + esc(name) + "</span>");
+    });
+    return out.join("");
   }
 
   function filmHtml(f, inList) {
@@ -902,7 +984,7 @@
         $("count").textContent = films.length + (more ? "+" : "") + " " + (films.length === 1 ? "resultado" : "resultados") +
           (state.searchMine ? " en tus plataformas" : "");
       }
-    } else if (state.selected.length === 0) {
+    } else if (!hasPlatforms()) {
       $("count").textContent = "Sin plataformas elegidas";
     } else if (state.loading && films.length === 0) {
       $("count").textContent = "Buscando…";
@@ -916,7 +998,7 @@
     $("pick").hidden = !!q || films.length === 0;
     $("more").hidden = !live || state.loading || state.page >= state.totalPages || state.films.length === 0;
 
-    if (!q && state.selected.length === 0) {
+    if (!q && !hasPlatforms()) {
       $("list").innerHTML = '<li class="empty">Elige al menos una plataforma para ver qué puedes ver hoy.</li>';
     } else if (films.length === 0 && !state.loading) {
       var msg;
@@ -1155,11 +1237,37 @@
   $("list").addEventListener("click", onCardClick);
   $("wl-list").addEventListener("click", onCardClick);
 
+  // Si un logo no carga (sin conexión, por ejemplo), se cambia por la inicial de la plataforma
+  $("platforms").addEventListener("error", function (e) {
+    var img = e.target;
+    if (!img || img.tagName !== "IMG") return;
+    var btn = img.closest("button[data-p]"), d = btn && PLATFORM_BY_KEY[btn.getAttribute("data-p")];
+    var s = document.createElement("span");
+    s.className = "plogo gen"; s.setAttribute("aria-hidden", "true");
+    s.style.background = "hsl(" + hue(d ? d.name : "x") + " 50% 38%)";
+    s.textContent = d ? d.name.charAt(0) : "?";
+    img.replaceWith(s);
+  }, true);
+
+  // La lupa cambia de color en cuanto hay texto; la cruz aparece para borrarlo
+  function syncSearchBox() {
+    var has = $("q").value.length > 0;
+    $("search-box").classList.toggle("has-text", has);
+    $("q-clear").hidden = !has;
+  }
   $("q").addEventListener("input", function () {
+    syncSearchBox();
     clearTimeout(searchTimer);
     searchTimer = setTimeout(applySearch, 400);
   });
-  $("q").addEventListener("search", function () { clearTimeout(searchTimer); applySearch(); });
+  $("q").addEventListener("search", function () { syncSearchBox(); clearTimeout(searchTimer); applySearch(); });
+  $("q-clear").addEventListener("click", function () {
+    $("q").value = "";
+    syncSearchBox();
+    clearTimeout(searchTimer);
+    applySearch();
+    $("q").focus();
+  });
   $("q").addEventListener("keydown", function (e) {
     if (e.key === "Enter") { clearTimeout(searchTimer); applySearch(); $("q").blur(); }
   });
@@ -1258,11 +1366,6 @@
   });
 
   $("platforms").addEventListener("click", function (e) {
-    if (e.target.closest("button[data-more]")) {
-      state.showAllProviders = !state.showAllProviders;
-      renderPlatforms();
-      return;
-    }
     var b = e.target.closest("button[data-p]");
     if (!b) return;
     var p = b.getAttribute("data-p"), i = state.selected.indexOf(p);
