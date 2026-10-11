@@ -99,6 +99,7 @@
     cursor: pointer; min-height: 40px;
   }
   .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+  select:disabled { opacity: 0.55; }
   .chip.plat { display: inline-flex; align-items: center; gap: 8px; padding-left: 8px; }
   .plogo { width: 24px; height: 24px; border-radius: 6px; object-fit: cover; flex: none; background: var(--line); }
   .plogo.gen { display: grid; place-items: center; color: #fff; font: 700 0.8rem/1 var(--font-display); }
@@ -287,6 +288,11 @@
       <div class="chips" id="platforms"></div>
     </section>
 
+    <section aria-labelledby="h-mood" id="mood-section">
+      <h2 id="h-mood">¿Qué te apetece?</h2>
+      <div class="chips" id="moods"></div>
+    </section>
+
     <section aria-labelledby="h-fil" id="filters-section">
       <h2 id="h-fil">Filtros</h2>
       <div class="filters">
@@ -371,6 +377,26 @@
   ];
   var PLATFORM_BY_KEY = {}, LABEL_TO_KEY = {};
   PLATFORMS.forEach(function (d) { PLATFORM_BY_KEY[d.key] = d; LABEL_TO_KEY[d.name] = d.key; });
+
+  // Moods: cada uno traduce "lo que me apetece" a filtros de TMDB para películas (movie) y series (tv).
+  // g = géneros de TMDB ("|" significa "cualquiera de", "," significa "todos a la vez"),
+  // rating = nota mínima y run = duración máxima en minutos (por episodio en series).
+  // Si un mood no tiene versión para un tipo (null), no se muestra en ese tipo.
+  // demo = géneros de los títulos de ejemplo que encajan con el mood.
+  var MOODS = [
+    { key: "reir", name: "Reírme", movie: { g: "35" }, tv: { g: "35" }, demo: ["Comedia"] },
+    { key: "emocionar", name: "Emocionarme", movie: { g: "18,10749", rating: 7 }, tv: { g: "18", rating: 8 }, demo: ["Drama", "Romance"] },
+    { key: "pensar", name: "Pensar", movie: { g: "9648|878", rating: 7 }, tv: { g: "9648|10765", rating: 7 }, demo: ["Misterio", "Ciencia ficción"] },
+    { key: "adrenalina", name: "Adrenalina", movie: { g: "28|53" }, tv: { g: "10759|80" }, demo: ["Acción", "Suspense", "Crimen"] },
+    { key: "miedo", name: "Miedo", movie: { g: "27" }, tv: null, demo: ["Terror"] },
+    { key: "romance", name: "Romance", movie: { g: "10749" }, tv: null, demo: ["Romance"] },
+    { key: "desconectar", name: "Desconectar", movie: { g: "35|10751|16", run: 110 }, tv: { g: "35|16", run: 30 }, demo: ["Comedia", "Familia", "Animación"] },
+    { key: "evadirme", name: "Evadirme", movie: { g: "14|878|12" }, tv: { g: "10765|10759" }, demo: ["Fantasía", "Ciencia ficción", "Aventura"] },
+    { key: "familia", name: "En familia", movie: { g: "10751" }, tv: { g: "10751|10762" }, demo: ["Familia", "Animación"] },
+    { key: "aprender", name: "Aprender", movie: { g: "99|36" }, tv: { g: "99" }, demo: ["Historia", "Documental"] }
+  ];
+  var MOOD_BY_KEY = {};
+  MOODS.forEach(function (m) { MOOD_BY_KEY[m.key] = m; });
   var BOOKMARK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg>';
 
   // Diferencias entre películas y series en TMDB
@@ -402,12 +428,12 @@
   }
   var DEMO = {
     movie: demoItems("movie", "m", [
-      ["Parásitos", 2019, 132, ["Thriller", "Drama"], 8.5, ["Filmin", "Movistar Plus+"]],
+      ["Parásitos", 2019, 132, ["Suspense", "Drama"], 8.5, ["Filmin", "Movistar Plus+"]],
       ["El padrino", 1972, 175, ["Drama", "Crimen"], 9.2, ["Movistar Plus+", "SkyShowtime"]],
       ["Origen", 2010, 148, ["Ciencia ficción", "Acción"], 8.8, ["Netflix", "HBO Max"]],
       ["Interstellar", 2014, 169, ["Ciencia ficción", "Drama"], 8.7, ["Prime Video", "Movistar Plus+"]],
       ["El viaje de Chihiro", 2001, 125, ["Animación", "Fantasía"], 8.6, ["Netflix", "Filmin"]],
-      ["Coco", 2017, 105, ["Animación", "Familiar"], 8.4, ["Disney+"]],
+      ["Coco", 2017, 105, ["Animación", "Familia"], 8.4, ["Disney+"]],
       ["Dune: Parte dos", 2024, 166, ["Ciencia ficción", "Aventura"], 8.5, ["HBO Max"]],
       ["Oppenheimer", 2023, 180, ["Drama", "Historia"], 8.3, ["Prime Video"]],
       ["Todo a la vez en todas partes", 2022, 139, ["Ciencia ficción", "Comedia"], 7.8, ["Prime Video", "Movistar Plus+"]],
@@ -417,17 +443,17 @@
       ["El laberinto del fauno", 2006, 119, ["Fantasía", "Drama"], 8.2, ["Netflix", "Movistar Plus+"]],
       ["Los otros", 2001, 101, ["Terror", "Misterio"], 7.9, ["Prime Video", "RTVE Play"]],
       ["Ocho apellidos vascos", 2014, 98, ["Comedia"], 6.9, ["Netflix", "Prime Video"]],
-      ["Toy Story", 1995, 81, ["Animación", "Familiar"], 8.3, ["Disney+"]],
+      ["Toy Story", 1995, 81, ["Animación", "Familia"], 8.3, ["Disney+"]],
       ["Uno de los nuestros", 1990, 145, ["Crimen", "Drama"], 8.7, ["HBO Max"]],
       ["Verano 1993", 2017, 97, ["Drama"], 7.5, ["Filmin", "RTVE Play"]],
       ["El orfanato", 2007, 105, ["Terror", "Misterio"], 7.4, ["Netflix"]],
-      ["Pulp Fiction", 1994, 154, ["Crimen", "Thriller"], 8.8, ["Prime Video", "SkyShowtime"]],
+      ["Pulp Fiction", 1994, 154, ["Crimen", "Suspense"], 8.8, ["Prime Video", "SkyShowtime"]],
       ["Spider-Man: Cruzando el Multiverso", 2023, 140, ["Animación", "Acción"], 8.4, ["Netflix"]],
       ["Ratatouille", 2007, 111, ["Animación", "Comedia"], 8.1, ["Disney+"]],
       ["Cinema Paradiso", 1988, 124, ["Drama", "Romance"], 8.5, ["Filmin", "Movistar Plus+"]],
       ["Alien, el octavo pasajero", 1979, 117, ["Terror", "Ciencia ficción"], 8.5, ["Disney+"]],
-      ["El hoyo", 2019, 94, ["Thriller", "Ciencia ficción"], 7.0, ["Netflix"]],
-      ["Blade Runner 2049", 2017, 164, ["Ciencia ficción", "Thriller"], 8.0, ["Prime Video", "Movistar Plus+"]],
+      ["El hoyo", 2019, 94, ["Suspense", "Ciencia ficción"], 7.0, ["Netflix"]],
+      ["Blade Runner 2049", 2017, 164, ["Ciencia ficción", "Suspense"], 8.0, ["Prime Video", "Movistar Plus+"]],
       ["Mamma Mia!", 2008, 108, ["Musical", "Comedia"], 6.5, ["SkyShowtime", "Prime Video"]],
       ["El gran hotel Budapest", 2014, 99, ["Comedia", "Aventura"], 8.1, ["Disney+", "Movistar Plus+"]],
       ["CODA: Los latidos del corazón", 2021, 111, ["Drama", "Comedia"], 8.0, ["Apple TV+"]],
@@ -438,14 +464,14 @@
     tv: demoItems("tv", "t", [
       ["Breaking Bad", 2008, 47, ["Drama", "Crimen"], 9.5, ["Netflix"], "5 temporadas"],
       ["Los Soprano", 1999, 55, ["Drama", "Crimen"], 9.2, ["HBO Max"], "6 temporadas"],
-      ["La casa de papel", 2017, 70, ["Crimen", "Thriller"], 8.2, ["Netflix"], "5 temporadas"],
+      ["La casa de papel", 2017, 70, ["Crimen", "Suspense"], 8.2, ["Netflix"], "5 temporadas"],
       ["Chernobyl", 2019, 65, ["Drama", "Historia"], 9.3, ["HBO Max", "Movistar Plus+"], "1 temporada"],
       ["Succession", 2018, 60, ["Drama", "Comedia"], 8.8, ["HBO Max", "Movistar Plus+"], "4 temporadas"],
       ["Stranger Things", 2016, 50, ["Ciencia ficción", "Misterio"], 8.6, ["Netflix"], "5 temporadas"],
       ["Merlí", 2015, 50, ["Drama", "Comedia"], 8.0, ["Filmin", "Movistar Plus+"], "3 temporadas"],
       ["Fleabag", 2016, 27, ["Comedia", "Drama"], 8.7, ["Prime Video"], "2 temporadas"],
       ["The Bear", 2022, 30, ["Drama", "Comedia"], 8.4, ["Disney+"], "3 temporadas"],
-      ["Ozark", 2017, 60, ["Crimen", "Thriller"], 8.5, ["Netflix"], "4 temporadas"],
+      ["Ozark", 2017, 60, ["Crimen", "Suspense"], 8.5, ["Netflix"], "4 temporadas"],
       ["Ted Lasso", 2020, 30, ["Comedia", "Drama"], 8.8, ["Apple TV+"], "3 temporadas"],
       ["Cuéntame cómo pasó", 2001, 70, ["Drama", "Comedia"], 7.6, ["RTVE Play"], "25 temporadas"]
     ], function (a) { return a[6]; })
@@ -457,7 +483,7 @@
   var state = {
     key: "", mode: "demo", type: savedType === "tv" ? "tv" : "movie", view: "discover",
     meta: { movie: null, tv: null },
-    selected: [], idToKey: {},
+    selected: [], idToKey: {}, mood: null,
     films: [], total: 0, page: 0, totalPages: 0,
     loading: false, chosen: null, token: 0,
     searchQ: "", searchMine: false, hideSeen: true,
@@ -662,6 +688,8 @@
 
     var c = cfg(), type = state.type;
     var sort = $("sort").value || "pop", dur = parseInt($("dur").value, 10);
+    var mood = activeMood(type);
+    var limits = [dur, mood && mood.run].filter(Boolean);
     var sortApi = { pop: "popularity.desc", r: "vote_average.desc", y: c.sortRecent }[sort] || "popularity.desc";
     var params = {
       watch_region: REGION,
@@ -670,8 +698,9 @@
       language: "es-ES", include_adult: "false",
       sort_by: sortApi,
       "vote_count.gte": sort === "r" ? 300 : 100,
-      with_genres: $("genre").value,
-      "with_runtime.lte": dur || "",
+      with_genres: mood ? mood.g : $("genre").value,
+      "vote_average.gte": mood && mood.rating ? mood.rating : "",
+      "with_runtime.lte": limits.length ? Math.min.apply(null, limits) : "",
       page: state.page + 1
     };
     if (sort === "y") params[c.dateLte] = today();
@@ -728,8 +757,12 @@
   // ---------- Modo ejemplo ----------
   function demoFilms() {
     var g = $("genre").value, d = parseInt($("dur").value, 10), s = $("sort").value;
+    var m = state.mood && MOOD_BY_KEY[state.mood], mt = m && m[state.type];
     var out = DEMO[state.type].filter(function (f) {
-      return isMine(f) && (!g || f.g.indexOf(g) > -1) && (!d || f.min <= d);
+      var okGenre = mt
+        ? f.g.some(function (n) { return m.demo.indexOf(n) > -1; }) && f.r >= (mt.rating || 0)
+        : (!g || f.g.indexOf(g) > -1);
+      return isMine(f) && okGenre && (!d || f.min <= d) && (!(mt && mt.run) || f.min <= mt.run);
     });
     out.sort(function (a, b) { return s === "min" ? a.min - b.min : b[s] - a[s]; });
     return out;
@@ -885,6 +918,7 @@
     });
 
     renderPlatforms();
+    renderMoods();
 
     var genres;
     if (live) {
@@ -909,6 +943,7 @@
     var s = !!state.searchQ;
     $("type").hidden = s;
     $("filters-section").hidden = s;
+    $("mood-section").hidden = s;
     $("hide-seen").hidden = s;
     $("search-mine").hidden = !s;
     $("hide-seen").setAttribute("aria-pressed", String(state.hideSeen));
@@ -1009,7 +1044,9 @@
       } else if (base.length > 0 && state.hideSeen) {
         msg = "Todo lo que se ha cargado ya lo has visto." + (live ? " Pulsa Cargar más para ver más." : " Quita Ocultar vistas para verlo.");
       } else {
-        msg = "No hay " + c.plural + " con esos filtros. Prueba con otro género o más duración.";
+        msg = state.mood
+          ? "No hay " + c.plural + " para ese mood en tus plataformas. Prueba con otro mood o añade más plataformas."
+          : "No hay " + c.plural + " con esos filtros. Prueba con otro género o más duración.";
       }
       $("list").innerHTML = '<li class="empty">' + msg + "</li>";
     } else {
@@ -1363,6 +1400,33 @@
 
   $("remove-key").addEventListener("click", function () {
     drop(K_KEY); showError(""); startDemo();
+  });
+
+  // Mood activo para un tipo ({g, rating, run}) o null si no hay mood o no existe para ese tipo
+  function activeMood(type) {
+    var m = state.mood && MOOD_BY_KEY[state.mood], t = m && m[type];
+    return t ? { g: t.g, rating: t.rating || 0, run: t.run || 0 } : null;
+  }
+
+  function renderMoods() {
+    if (state.mood && !MOOD_BY_KEY[state.mood][state.type]) state.mood = null;
+    $("moods").innerHTML = MOODS.filter(function (m) { return !!m[state.type]; }).map(function (m) {
+      return '<button type="button" class="chip" aria-pressed="' + (state.mood === m.key) + '" data-mood="' + m.key + '">' + esc(m.name) + "</button>";
+    }).join("");
+    // Con un mood activo, el género lo fija el propio mood
+    var on = !!state.mood;
+    $("genre").disabled = on;
+    document.querySelector('label[for="genre"]').textContent = on ? "Género (lo fija el mood)" : "Género";
+  }
+
+  $("moods").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-mood]");
+    if (!b) return;
+    var k = b.getAttribute("data-mood");
+    state.mood = state.mood === k ? null : k;
+    state.chosen = null;
+    renderMoods();
+    refresh(true);
   });
 
   $("platforms").addEventListener("click", function (e) {
