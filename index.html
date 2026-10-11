@@ -260,6 +260,60 @@
   .block p { line-height: 1.55; }
   .small { font-size: 0.86rem; color: var(--muted); }
 
+  /* Descubrir: controles compactos */
+  #view-discover { gap: 14px; }
+  #list-chips .chip { min-height: 34px; padding: 4px 12px; font-size: 0.86rem; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }
+  .searchrow { display: flex; gap: 8px; align-items: center; }
+  .searchrow .search { flex: 1; min-width: 0; }
+  .fbtn {
+    position: relative; flex: none; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px;
+    font: inherit; font-weight: 600; color: var(--fg); background: var(--surface); border: 1px solid var(--line);
+    border-radius: 999px; cursor: pointer;
+  }
+  .fbtn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+  .fbadge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: var(--accent-fg); font-size: 0.72rem; line-height: 18px; text-align: center; }
+  .prow { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px; padding: 3px 16px; scrollbar-width: none; }
+  .prow::-webkit-scrollbar, .gchips::-webkit-scrollbar { display: none; }
+  .prow .chip.plat {
+    flex: none; width: 48px; height: 48px; min-height: 48px; padding: 0; border-radius: 14px; display: grid; place-items: center;
+    background: var(--surface); border: 2px solid var(--line);
+  }
+  .prow .plogo { width: 34px; height: 34px; border-radius: 9px; }
+  .prow .chip.plat[aria-pressed="false"] .plogo { filter: grayscale(1); opacity: 0.45; }
+  .prow .chip.plat[aria-pressed="true"] { background: var(--surface); border-color: var(--accent); }
+  .sticky {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 6; background: var(--bg);
+    margin: -8px -16px; padding: 8px 16px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .gchips { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px; padding: 0 16px 2px; scrollbar-width: none; }
+  .gchips .chip { flex: none; min-height: 36px; padding: 5px 14px; }
+  .seg.mini { padding: 3px; }
+  .seg.mini button { padding: 0 10px; min-height: 34px; display: grid; place-items: center; }
+  .seg.mini svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .list.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 14px; }
+  .list.grid .pcard { width: auto; }
+  .list.grid .empty { grid-column: 1 / -1; }
+  .pcard.chosen .poster { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .seen-tag {
+    position: absolute; left: 6px; top: 6px; z-index: 1; font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+    background: rgba(10, 12, 18, 0.7); color: #fff;
+  }
+  .fab {
+    position: fixed; right: 16px; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); z-index: 9; font: inherit; font-weight: 600;
+    background: var(--fg); color: var(--bg); border: 0; border-radius: 999px; padding: 0 18px; min-height: 44px; cursor: pointer;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  }
+  .scrim { position: fixed; inset: 0; z-index: 30; background: rgba(0, 0, 0, 0.5); }
+  .panel {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 31; max-width: 640px; margin-inline: auto; background: var(--surface);
+    border-radius: 20px 20px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 16px;
+    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.3);
+  }
+  .panel select { background: var(--bg); }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; }
+  .chip.on { background: var(--own-bg); border-color: var(--accent); color: var(--fg); font-weight: 600; min-height: 34px; padding: 4px 12px; }
+
   /* Inicio: sugerencia del día y carruseles de pósters */
   .hero {
     position: relative; overflow: hidden; border-radius: 18px; min-height: 240px; display: flex; flex-direction: column; justify-content: flex-end; gap: 0;
@@ -355,34 +409,40 @@
   <div class="view" id="view-home"></div>
 
   <div class="view" id="view-discover" hidden>
-    <div class="search" id="search-box">
-      <svg class="glass" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-      <input type="search" id="q" placeholder="Buscar película o serie" aria-label="Buscar por título" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
-      <button type="button" class="clear" id="q-clear" aria-label="Borrar búsqueda" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-    </div>
-
-    <div class="seg" id="type" role="group" aria-label="Tipo de contenido">
-      <button type="button" data-type="movie" aria-pressed="true">Películas</button>
-      <button type="button" data-type="tv" aria-pressed="false">Series</button>
-    </div>
-
-    <section aria-labelledby="h-plat">
-      <h2 id="h-plat">Mis plataformas</h2>
-      <div class="chips" id="platforms"></div>
-    </section>
-
-    <section aria-labelledby="h-fil" id="filters-section">
-      <h2 id="h-fil">Filtros</h2>
-      <div class="filters">
-        <div class="field"><label for="genre">Género</label><select id="genre"></select></div>
-        <div class="field"><label for="dur" id="dur-label">Duración</label><select id="dur"></select></div>
-        <div class="field"><label for="sort">Ordenar por</label><select id="sort"></select></div>
+    <div class="searchrow">
+      <div class="search" id="search-box">
+        <svg class="glass" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input type="search" id="q" placeholder="Buscar película o serie" aria-label="Buscar por título" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+        <button type="button" class="clear" id="q-clear" aria-label="Borrar búsqueda" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
+      <button type="button" class="fbtn" id="filters-btn" aria-haspopup="dialog">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+        <span>Filtros</span><span class="fbadge" id="fbadge" hidden></span>
+      </button>
+    </div>
+
+    <section>
+      <h2 id="h-plat" class="sr">Mis plataformas</h2>
+      <div class="prow" id="platforms"></div>
     </section>
+
+    <div class="sticky" id="dsticky">
+      <div class="seg" id="type" role="group" aria-label="Tipo de contenido">
+        <button type="button" data-type="movie" aria-pressed="true">Películas</button>
+        <button type="button" data-type="tv" aria-pressed="false">Series</button>
+      </div>
+      <div class="gchips" id="genre-chips" role="group" aria-label="Género"></div>
+      <select id="genre" hidden aria-hidden="true" tabindex="-1"></select>
+    </div>
+
+    <div class="chips" id="active" hidden></div>
 
     <div class="bar">
       <span class="count" id="count" aria-live="polite"></span>
-      <button class="pick" id="pick" type="button">Sorpréndeme</button>
+      <div class="seg mini" id="viewmode" role="group" aria-label="Vista de resultados">
+        <button type="button" data-mode="grid" aria-pressed="true" aria-label="Cuadrícula"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></button>
+        <button type="button" data-mode="list" aria-pressed="false" aria-label="Lista"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      </div>
     </div>
 
     <div class="chips" id="list-chips">
@@ -407,6 +467,20 @@
   </div>
 
   <p class="credit" id="credit" hidden>Datos de TMDB y disponibilidad de JustWatch. Este producto usa la API de TMDB pero no está avalado ni certificado por TMDB.</p>
+</div>
+
+<button class="fab" id="pick" type="button" hidden>Sorpréndeme</button>
+
+<div class="scrim" id="fscrim" hidden></div>
+<div class="panel" id="fpanel" role="dialog" aria-modal="true" aria-label="Filtros" hidden>
+  <div class="panel-head"><h2>Filtros</h2><button type="button" class="more-link" id="f-clear">Borrar filtros</button></div>
+  <div class="filters">
+    <div class="field"><label for="dur" id="dur-label">Duración</label><select id="dur"></select></div>
+    <div class="field"><label for="sort">Ordenar por</label><select id="sort"></select></div>
+    <div class="field"><label for="minr">Nota mínima</label><select id="minr"></select></div>
+    <div class="field"><label for="yr">Año de estreno</label><select id="yr"></select></div>
+  </div>
+  <button type="button" class="btn" id="f-apply">Ver resultados</button>
 </div>
 
 <nav class="tabbar" aria-label="Secciones">
@@ -435,6 +509,9 @@
   var K_TYPE = "quevehoy.type";
   var K_HIDE = "quevehoy.hideSeen";
   var K_INSTALL = "quevehoy.installDismissed";
+  var K_GRID = "quevehoy.grid";
+  var MINR = [["0", "Cualquiera"], ["6", "6 o más"], ["7", "7 o más"], ["8", "8 o más"]];
+  var YEARS = [["", "Cualquiera"], ["2020:", "Desde 2020"], ["2010:2019", "2010 – 2019"], ["2000:2009", "2000 – 2009"], [":1999", "Antes del 2000"]];
   var LOGO = "https://image.tmdb.org/t/p/w92";
   var BACKDROP = "https://image.tmdb.org/t/p/w780";
   var PROFILE = "https://image.tmdb.org/t/p/w185";
@@ -466,14 +543,14 @@
     movie: {
       noun: "película", plural: "películas",
       discover: "/discover/movie", providers: "/watch/providers/movie", genres: "/genre/movie/list", detail: "/movie/",
-      titleKey: "title", origKey: "original_title", dateKey: "release_date", dateLte: "primary_release_date.lte", sortRecent: "primary_release_date.desc",
+      titleKey: "title", origKey: "original_title", dateKey: "release_date", dateLte: "primary_release_date.lte", dateGte: "primary_release_date.gte", sortRecent: "primary_release_date.desc",
       durLabel: "Duración",
       dur: [["0", "Cualquiera"], ["100", "Hasta 100 min"], ["130", "Hasta 130 min"], ["150", "Hasta 150 min"]]
     },
     tv: {
       noun: "serie", plural: "series",
       discover: "/discover/tv", providers: "/watch/providers/tv", genres: "/genre/tv/list", detail: "/tv/",
-      titleKey: "name", origKey: "original_name", dateKey: "first_air_date", dateLte: "first_air_date.lte", sortRecent: "first_air_date.desc",
+      titleKey: "name", origKey: "original_name", dateKey: "first_air_date", dateLte: "first_air_date.lte", dateGte: "first_air_date.gte", sortRecent: "first_air_date.desc",
       durLabel: "Duración por episodio",
       dur: [["0", "Cualquiera"], ["30", "Hasta 30 min"], ["45", "Hasta 45 min"], ["60", "Hasta 60 min"]]
     }
@@ -600,6 +677,11 @@
   function plain(s) { return String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); }
 
   state.hideSeen = load(K_HIDE, true) !== false;
+  state.grid = load(K_GRID, true) !== false;
+  function yearRange() {
+    var v = ($("yr") && $("yr").value) || "", p = v.split(":");
+    return v ? { from: p[0] ? parseInt(p[0], 10) : null, to: p[1] ? parseInt(p[1], 10) : null } : null;
+  }
 
   // Plataformas: una sola selección para películas y series
   function selKey() { return state.mode === "demo" ? "quevehoy.sel.demo" : "quevehoy.sel.live"; }
@@ -805,7 +887,11 @@
       "with_runtime.lte": dur || "",
       page: state.page + 1
     };
-    if (sort === "y") params[c.dateLte] = today();
+    var minr = parseInt($("minr").value, 10), yr = yearRange();
+    if (minr) params["vote_average.gte"] = minr;
+    if (yr && yr.from) params[c.dateGte] = yr.from + "-01-01";
+    if (yr && yr.to) params[c.dateLte] = yr.to + "-12-31";
+    else if (sort === "y") params[c.dateLte] = today();
 
     api(c.discover, params).then(function (data) {
       if (token !== state.token) return;
@@ -859,8 +945,10 @@
   // ---------- Modo ejemplo ----------
   function demoFilms() {
     var g = $("genre").value, d = parseInt($("dur").value, 10), s = $("sort").value;
+    var mr = parseInt($("minr").value, 10), yr = yearRange();
     var out = DEMO[state.type].filter(function (f) {
-      return isMine(f) && (!g || f.g.indexOf(g) > -1) && (!d || f.min <= d);
+      return isMine(f) && (!g || f.g.indexOf(g) > -1) && (!d || f.min <= d) && (!mr || f.r >= mr) &&
+        (!yr || ((!yr.from || f.y >= yr.from) && (!yr.to || f.y <= yr.to)));
     });
     out.sort(function (a, b) { return s === "min" ? a.min - b.min : b[s] - a[s]; });
     return out;
@@ -1040,8 +1128,8 @@
   function renderPlatforms() {
     $("platforms").innerHTML = groupList().map(function (g) {
       var on = state.selected.indexOf(g.key) > -1;
-      return '<button type="button" class="chip plat" aria-pressed="' + on + '" data-p="' + esc(g.key) + '">' +
-        logoHtml(g) + "<span>" + esc(g.name) + "</span></button>";
+      return '<button type="button" class="chip plat" aria-pressed="' + on + '" data-p="' + esc(g.key) + '" title="' + esc(g.name) + '">' +
+        logoHtml(g) + '<span class="sr">' + esc(g.name) + "</span></button>";
     }).join("");
   }
 
@@ -1065,7 +1153,11 @@
     fillSelect($("genre"), [["", "Todos"]].concat(genres), $("genre").value);
     fillSelect($("sort"), live ? SORTS_LIVE : SORTS_DEMO, $("sort").value);
     fillSelect($("dur"), c.dur, $("dur").value);
+    fillSelect($("minr"), MINR, $("minr").value);
+    fillSelect($("yr"), YEARS, $("yr").value);
     $("dur-label").textContent = c.durLabel;
+    renderGenreChips();
+    updateFilterUI();
 
     $("demo-note").hidden = live;
     $("credit").hidden = !live;
@@ -1073,10 +1165,41 @@
     updateSearchUI();
   }
 
+  function renderGenreChips() {
+    var cur = $("genre").value;
+    $("genre-chips").innerHTML = Array.prototype.map.call($("genre").options, function (o) {
+      return '<button type="button" class="chip" data-g="' + esc(o.value) + '" aria-pressed="' + (o.value === cur) + '">' + esc(o.value === "" ? "Todos" : o.textContent) + "</button>";
+    }).join("");
+  }
+
+  // Insignia del botón Filtros y chips de los filtros activos
+  function updateFilterUI() {
+    var act = [];
+    function sel(id) { var e = $(id); return e.options[e.selectedIndex] ? e.options[e.selectedIndex].textContent : ""; }
+    if ($("dur").value !== "0" && $("dur").value !== "") act.push(["dur", sel("dur")]);
+    if ($("minr").value !== "0" && $("minr").value !== "") act.push(["minr", "Nota " + sel("minr")]);
+    if ($("yr").value) act.push(["yr", sel("yr")]);
+    if ($("sort").selectedIndex > 0) act.push(["sort", "Orden: " + sel("sort")]);
+    $("fbadge").hidden = act.length === 0;
+    $("fbadge").textContent = act.length;
+    $("active").hidden = act.length === 0 || !!state.searchQ;
+    $("active").innerHTML = act.map(function (a) {
+      return '<button type="button" class="chip on" data-clear="' + a[0] + '" aria-label="Quitar filtro ' + esc(a[1]) + '">' + esc(a[1]) + " ✕</button>";
+    }).join("");
+  }
+
+  function resetFilters(withGenre) {
+    $("dur").value = "0"; $("minr").value = "0"; $("yr").value = ""; $("sort").selectedIndex = 0;
+    if (withGenre) { $("genre").value = ""; renderGenreChips(); }
+    updateFilterUI();
+  }
+
   function updateSearchUI() {
     var s = !!state.searchQ;
     $("type").hidden = s;
-    $("filters-section").hidden = s;
+    $("dsticky").hidden = s;
+    $("filters-btn").hidden = s;
+    $("active").hidden = s || $("active").children.length === 0;
     $("hide-seen").hidden = s;
     $("search-mine").hidden = !s;
     $("hide-seen").setAttribute("aria-pressed", String(state.hideSeen));
@@ -1169,7 +1292,13 @@
         (hidden > 0 ? " · " + hidden + (hidden === 1 ? " vista oculta" : " vistas ocultas") : "");
     }
 
-    $("pick").hidden = !!q || films.length === 0;
+    $("pick").hidden = !!q || films.length === 0 || state.view !== "discover";
+    var nres = live ? state.total : films.length;
+    $("f-apply").textContent = state.loading || !hasPlatforms() ? "Ver resultados" : "Ver " + nres + (nres === 1 ? " resultado" : " resultados");
+    $("list").className = "list" + (state.grid ? " grid" : "");
+    Array.prototype.forEach.call(document.querySelectorAll("#viewmode button"), function (b) {
+      b.setAttribute("aria-pressed", String((b.getAttribute("data-mode") === "grid") === state.grid));
+    });
     $("more").hidden = !live || state.loading || state.page >= state.totalPages || state.films.length === 0;
 
     if (!q && !hasPlatforms()) {
@@ -1187,7 +1316,7 @@
       }
       $("list").innerHTML = '<li class="empty">' + msg + "</li>";
     } else {
-      $("list").innerHTML = films.map(function (f) { return filmHtml(f, false); }).join("");
+      $("list").innerHTML = films.map(function (f) { return state.grid ? pcardHtml(f, !!q) : filmHtml(f, false); }).join("");
     }
   }
 
@@ -1205,11 +1334,13 @@
     { id: "bs", title: "Series mejor valoradas", type: "tv", kind: "top" }
   ];
 
-  function pcardHtml(f) {
+  function pcardHtml(f, showType) {
     var key = keyOf(f), saved = isSaved(key), meta = [];
     if (f.r) meta.push('<span class="score">' + Number(f.r).toFixed(1) + "</span>");
     if (f.y) meta.push(String(f.y));
-    return '<li class="pcard" data-key="' + esc(key) + '"><div class="pc-img">' + posterHtml(f, true) +
+    if (showType === true) meta.push(f.type === "tv" ? "Serie" : "Película");
+    return '<li class="pcard' + (key === state.chosen ? " chosen" : "") + '" data-key="' + esc(key) + '"><div class="pc-img">' +
+      (isSeen(key) ? '<span class="seen-tag">Vista</span>' : "") + posterHtml(f, true) +
       '<button type="button" class="save" aria-pressed="' + saved + '" aria-label="' + (saved ? "Quitar de mi lista" : "Guardar en mi lista") + '">' + BOOKMARK + "</button></div>" +
       '<button type="button" class="open pc-title">' + esc(f.t) + "</button>" +
       '<p class="meta">' + meta.join(" · ") + "</p></li>";
@@ -1355,7 +1486,7 @@
     loadMeta(type).then(function () {
       state.type = type; save(K_TYPE, type); state.chosen = null; state.stale = false;
       if (state.searchQ) { $("q").value = ""; state.searchQ = ""; syncSearchBox(); }
-      $("genre").value = ""; $("dur").value = "0";
+      resetFilters(true);
       renderControls();
       $("sort").value = kind === "new" ? "y" : kind === "top" ? "r" : (state.mode === "live" ? "pop" : "r");
       setView("discover");
@@ -1583,6 +1714,7 @@
     Array.prototype.forEach.call(document.querySelectorAll(".tabbar button"), function (b) {
       b.setAttribute("aria-pressed", String(b.getAttribute("data-view") === v));
     });
+    if (v !== "discover") $("pick").hidden = true;
     if (v === "list") renderList();
     else if (v === "home") loadHome();
     else if (state.stale) { state.stale = false; refresh(true); }
@@ -1596,7 +1728,7 @@
     state.selected = loadSelected();
     state.chosen = null; state.loading = false;
     loadList(); updateTab();
-    $("genre").value = ""; $("sort").value = ""; $("dur").value = "0";
+    $("genre").value = ""; $("sort").value = ""; $("dur").value = "0"; $("minr").value = "0"; $("yr").value = "";
     state.home = { sig: "", rows: {}, loading: false };
     renderControls(); render();
     if (state.view === "list") renderList(); else if (state.view === "home") loadHome();
@@ -1608,7 +1740,7 @@
     state.selected = loadSelected();
     state.chosen = null;
     loadList(); updateTab();
-    $("genre").value = ""; $("sort").value = ""; $("dur").value = "0";
+    $("genre").value = ""; $("sort").value = ""; $("dur").value = "0"; $("minr").value = "0"; $("yr").value = "";
     state.home = { sig: "", rows: {}, loading: false };
     renderControls(); render();
     if (state.view === "list") renderList(); else if (state.view === "home") loadHome();
@@ -1743,7 +1875,10 @@
   });
 
   $("sheet-close").addEventListener("click", function () { goBack(false); });
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape") goBack(false); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    if (!$("fpanel").hidden) setPanel(false); else goBack(false);
+  });
   window.addEventListener("popstate", function () {
     if (state.skipPop > 0) { state.skipPop--; return; }
     if (state.detail) goBack(true);
@@ -1847,9 +1982,52 @@
     if (state.searchQ) render(); else refresh(true);
   });
 
-  ["genre", "dur", "sort"].forEach(function (id) {
-    $(id).addEventListener("change", function () { state.chosen = null; refresh(true); });
+  ["genre", "dur", "sort", "minr", "yr"].forEach(function (id) {
+    $(id).addEventListener("change", function () { state.chosen = null; updateFilterUI(); refresh(true); });
   });
+
+  $("genre-chips").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-g]");
+    if (!b) return;
+    $("genre").value = b.getAttribute("data-g");
+    state.chosen = null;
+    renderGenreChips();
+    refresh(true);
+  });
+
+  // Panel de filtros
+  function setPanel(open) {
+    $("fpanel").hidden = !open; $("fscrim").hidden = !open;
+    if (open) $("f-apply").focus(); else $("filters-btn").focus();
+  }
+  $("filters-btn").addEventListener("click", function () { setPanel(true); });
+  $("fscrim").addEventListener("click", function () { setPanel(false); });
+  $("f-apply").addEventListener("click", function () { setPanel(false); });
+  $("f-clear").addEventListener("click", function () { state.chosen = null; resetFilters(true); refresh(true); });
+  $("active").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-clear]");
+    if (!b) return;
+    var k = b.getAttribute("data-clear");
+    if (k === "sort") $("sort").selectedIndex = 0;
+    else $(k).value = k === "dur" || k === "minr" ? "0" : "";
+    state.chosen = null; updateFilterUI(); refresh(true);
+  });
+
+  // Vista en cuadrícula o lista
+  $("viewmode").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-mode]");
+    if (!b) return;
+    state.grid = b.getAttribute("data-mode") === "grid";
+    save(K_GRID, state.grid);
+    render();
+  });
+
+  // Cargar más al llegar al final de la lista
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver(function (entries) {
+      if (entries[0].isIntersecting && !$("more").hidden && !state.loading && state.mode === "live") fetchFilms(false);
+    }, { rootMargin: "300px" }).observe($("more"));
+  }
 
   $("more").addEventListener("click", function () { fetchFilms(false); });
 
@@ -1858,7 +2036,7 @@
     if (!films.length) return;
     state.chosen = keyOf(films[Math.floor(Math.random() * films.length)]);
     render();
-    var el = document.querySelector(".film.chosen");
+    var el = document.querySelector(".chosen");
     if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
   });
 
