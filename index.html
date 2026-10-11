@@ -211,10 +211,18 @@
   }
   .tabbar div { max-width: 640px; margin-inline: auto; display: flex; }
   .tabbar button {
-    flex: 1; min-height: 56px; font: inherit; font-weight: 600; color: var(--muted);
-    background: none; border: 0; border-top: 3px solid transparent; cursor: pointer;
+    flex: 1; min-height: 60px; color: var(--muted); background: none; border: 0; cursor: pointer;
+    display: grid; place-items: center;
   }
-  .tabbar button[aria-pressed="true"] { color: var(--accent); border-top-color: var(--accent); }
+  .tabbar .ti { position: relative; display: grid; place-items: center; width: 60px; height: 34px; border-radius: 17px; }
+  .tabbar svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  .tabbar button[aria-pressed="true"] { color: var(--accent); }
+  .tabbar button[aria-pressed="true"] .ti { background: var(--own-bg); }
+  .tabbar button[aria-pressed="true"] svg { stroke-width: 2.2; }
+  .tbadge {
+    position: absolute; top: -2px; right: 4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+    background: var(--accent); color: var(--accent-fg); font-size: 0.7rem; font-weight: 700; line-height: 18px; text-align: center;
+  }
 
   .sheet {
     position: fixed; inset: 0; z-index: 20; background: var(--bg); overflow-y: auto; overscroll-behavior: contain;
@@ -490,9 +498,9 @@
 
 <nav class="tabbar" aria-label="Secciones">
   <div>
-    <button type="button" data-view="home" aria-pressed="true">Inicio</button>
-    <button type="button" data-view="discover" aria-pressed="false">Descubrir</button>
-    <button type="button" data-view="list" aria-pressed="false" id="tab-list">Mi lista</button>
+    <button type="button" data-view="home" aria-pressed="true" aria-label="Inicio"><span class="ti"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7"/><path d="M6 10v9a1 1 0 0 0 1 1h3.5v-5.5h3V20H17a1 1 0 0 0 1-1v-9"/></svg></span><span class="sr">Inicio</span></button>
+    <button type="button" data-view="discover" aria-pressed="false" aria-label="Descubrir"><span class="ti"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.8 8.2l-2 5.6-5.6 2 2-5.6z"/></svg></span><span class="sr">Descubrir</span></button>
+    <button type="button" data-view="list" aria-pressed="false" id="tab-list" aria-label="Mi lista"><span class="ti"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg><span class="tbadge" id="tab-badge" hidden></span></span><span class="sr" id="tab-text">Mi lista</span></button>
   </div>
 </nav>
 
@@ -1032,7 +1040,9 @@
   function pendingCount() { return state.list.filter(function (x) { return !x.seen; }).length; }
   function updateTab() {
     var n = pendingCount();
-    $("tab-list").textContent = n ? "Mi lista · " + n : "Mi lista";
+    $("tab-badge").hidden = !n;
+    $("tab-badge").textContent = n > 99 ? "99+" : String(n);
+    $("tab-list").setAttribute("aria-label", n ? "Mi lista, " + n + " pendientes" : "Mi lista");
   }
 
   function scheduleListRender() {
