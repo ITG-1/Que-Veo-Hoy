@@ -1650,7 +1650,7 @@
       list = list.filter(function (f) { return !(state.hideSeen && isSeen(keyOf(f))); });
       if (!list.length) return "";
       return '<section class="hrow"><div class="hrow-head"><h2>' + esc(r.title) + '</h2><button type="button" class="more-link" data-all="' + r.type + "|" + r.kind +
-        '" aria-label="Ver todo: ' + esc(r.title) + '">Ver todo</button></div><ul class="rail">' + list.map(pcardHtml).join("") + "</ul></section>";
+        '" aria-label="Ver todo: ' + esc(r.title) + '">Ver todo</button></div><ul class="rail">' + list.map(function (f) { return pcardHtml(f); }).join("") + "</ul></section>";
     }).join("");
     var hero = heroHtml();
     var groups = ready ? groupList().filter(function (g) { return state.selected.indexOf(g.key) > -1; }) : [];
@@ -1830,7 +1830,7 @@
     var scoped = state.selected.length > 0;
     var items = scoped ? list.filter(isMine) : list;
     box.innerHTML = "<h2>" + (scoped ? "Parecidas en tus plataformas" : "Parecidas") + "</h2>" +
-      (items.length ? '<ul class="rail">' + items.slice(0, 12).map(pcardHtml).join("") + "</ul>"
+      (items.length ? '<ul class="rail">' + items.slice(0, 12).map(function (f) { return pcardHtml(f); }).join("") + "</ul>"
         : '<p class="small">Ninguna de las parecidas está en tus plataformas.</p>');
   }
 
