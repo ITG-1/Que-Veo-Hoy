@@ -273,6 +273,45 @@
   .block p { line-height: 1.55; }
   .small { font-size: 0.86rem; color: var(--muted); }
 
+  /* Mi lista */
+  #wl-tabs button { padding: 8px 13px; }
+  .wl { display: flex; flex-direction: column; gap: 22px; }
+  .wlg { display: flex; flex-direction: column; gap: 10px; }
+  .wlg h2 .cnt { font-weight: 500; letter-spacing: 0; }
+  .wlg.dim .list { opacity: 0.62; }
+  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .stat b { font: 800 1.7rem/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 0.78rem; color: var(--muted); line-height: 1.25; }
+  .day-tag {
+    position: absolute; left: 6px; bottom: 6px; z-index: 1; font-size: 0.74rem; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+    background: var(--accent); color: var(--accent-fg);
+  }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .card h2 { letter-spacing: 0.08em; }
+  .profile { font-size: 1.02rem; line-height: 1.45; }
+  .profile b { font-weight: 700; }
+  .hbars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .hbars li { display: grid; grid-template-columns: minmax(120px, 44%) minmax(0, 1fr) 24px; align-items: center; gap: 10px; font-size: 0.88rem; }
+  .hbars .hl { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .hbars .hl .lt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hbars .plogo { width: 22px; height: 22px; border-radius: 6px; font-size: 0.7rem; }
+  .hbars .ht { height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; }
+  .hbars .ht i { display: block; height: 100%; border-radius: 5px; background: var(--accent); }
+  .hbars b { text-align: right; font-variant-numeric: tabular-nums; }
+  .vbars { display: flex; align-items: flex-end; gap: 10px; height: 150px; }
+  .vc { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 100%; font-size: 0.78rem; }
+  .vc i { display: block; width: 100%; max-width: 44px; border-radius: 6px 6px 2px 2px; background: var(--accent); }
+  .vc b { font-variant-numeric: tabular-nums; }
+  .vc span { color: var(--muted); font-size: 0.72rem; text-align: center; line-height: 1.15; }
+  .split { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--line); gap: 2px; }
+  .split i { display: block; height: 100%; background: var(--accent); }
+  .split i + i { background: var(--fg); opacity: 0.75; }
+  .legend { display: flex; gap: 16px; font-size: 0.86rem; color: var(--muted); }
+  .legend b { color: var(--fg); }
+
   /* Descubrir: controles compactos */
   #view-discover { gap: 14px; }
   #list-chips .chip { min-height: 34px; padding: 4px 12px; font-size: 0.86rem; }
@@ -473,10 +512,10 @@
       <div class="seg" id="wl-tabs" role="group" aria-label="Estado de los títulos">
         <button type="button" data-ltab="pending" id="lt-pending" aria-pressed="true">Pendientes</button>
         <button type="button" data-ltab="seen" id="lt-seen" aria-pressed="false">Vistas</button>
+        <button type="button" data-ltab="summary" id="lt-summary" aria-pressed="false">Resumen</button>
       </div>
-      <div class="chips" id="wl-tools"><button class="chip" id="only-mine" type="button" aria-pressed="false">Solo en mis plataformas</button></div>
     </section>
-    <ul class="list" id="wl-list"></ul>
+    <div class="wl" id="wl-list"></div>
   </div>
 
   <p class="credit" id="credit" hidden>Datos de TMDB y disponibilidad de JustWatch. Este producto usa la API de TMDB pero no está avalado ni certificado por TMDB.</p>
@@ -655,7 +694,7 @@
     films: [], total: 0, page: 0, totalPages: 0,
     loading: false, chosen: null, token: 0,
     searchQ: "", searchMine: false, hideSeen: true,
-    list: [], listTab: "pending", onlyMine: false,
+    list: [], listTab: "pending",
     detail: null, detailData: null, lastFocus: null,
     stack: [], depth: 0, skipPop: 0, reg: {}, stale: false,
     home: { sig: "", rows: {}, loading: false }, homeToken: 0, hero: null
@@ -1077,14 +1116,142 @@
   function enrichList() {
     if (state.mode !== "live") return;
     state.list.forEach(function (x) {
-      if (x.p !== undefined && (x.type !== "tv" || x.status !== undefined)) return;
+      if (x.p !== undefined && x.status !== undefined) return;
       details(x.type, x.id).then(function (d) {
         x.p = d.p;
-        if (x.type === "tv") { x.next = d.next; x.status = d.status; }
+        x.status = d.status;
+        if (x.type === "tv") x.next = d.next;
         if (typeof x.len !== "string" || x.len === "") x.len = d.len;
         scheduleListRender();
       }).catch(function () { if (x.p === undefined) x.p = []; if (x.status === undefined) x.status = ""; scheduleListRender(); });
     });
+  }
+
+  function isUpcoming(x) {
+    return /^(Rumored|Planned|In Production|Post Production)$/.test(x.status || "") || (x.y && x.y > new Date().getFullYear());
+  }
+  function listGroup(x) {
+    if (x.p === undefined) return "load";
+    if (isMine(x)) return "now";
+    return isUpcoming(x) ? "soon" : "off";
+  }
+  function dayTag(x) {
+    var n = nextInfo(x);
+    if (!n || n.days < 0) return "";
+    if (n.days === 0) return "Hoy";
+    if (n.days === 1) return "Mañana";
+    var dt = new Date(); dt.setDate(dt.getDate() + n.days);
+    var t = dt.toLocaleDateString("es-ES", { weekday: "short", day: "numeric" }).replace(".", "");
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+  function emptyHtml(msg) { return '<div class="empty">' + msg + "</div>"; }
+
+  function pendingHtml(items) {
+    var soonEps = items.filter(function (x) { return x.type === "tv" && x.next && nextInfo(x) && nextInfo(x).days >= 0; });
+    var week = soonEps.filter(function (x) { return nextInfo(x).days <= 7; }).length;
+    var known = items.filter(function (x) { return x.p !== undefined; });
+    var mine = known.filter(isMine).length;
+    var stats = '<div class="stats"><div class="stat"><b>' + items.length + "</b><span>Pendientes</span></div>" +
+      '<div class="stat"><b>' + week + "</b><span>Estrenan esta semana</span></div>" +
+      '<div class="stat"><b>' + (known.length < items.length ? "…" : mine) + "</b><span>En tus plataformas</span></div></div>";
+
+    var rail = "";
+    var upcoming = soonEps.filter(function (x) { return nextInfo(x).days <= 14; });
+    if (upcoming.length) {
+      rail = '<section class="hrow"><div class="hrow-head"><h2>Próximos episodios</h2></div><ul class="rail">' +
+        upcoming.map(function (x) { return pcardHtml(x, false, dayTag(x)); }).join("") + "</ul></section>";
+    }
+
+    var names = { now: "Disponibles ahora", soon: "Aún sin estrenar", off: "No están en tus plataformas", load: "Comprobando plataformas…" };
+    var groups = { now: [], soon: [], off: [], load: [] };
+    items.forEach(function (x) { groups[listGroup(x)].push(x); });
+    var body = ["now", "soon", "off", "load"].map(function (g) {
+      if (!groups[g].length) return "";
+      return '<section class="wlg' + (g === "off" ? " dim" : "") + '"><h2>' + names[g] + ' <span class="cnt">· ' + groups[g].length + "</span></h2>" +
+        (g === "off" ? '<p class="small">Ahora mismo no están en ninguna de tus plataformas.</p>' : "") +
+        '<ul class="list">' + groups[g].map(function (f) { return filmHtml(f, true); }).join("") + "</ul></section>";
+    }).join("");
+    return stats + rail + body;
+  }
+
+  // ---------- Resumen (perfil de lo que has visto) ----------
+  function minutesOf(x) { var m = /(\d+)\s*min/.exec(x.len || ""); return m ? parseInt(m[1], 10) : 0; }
+  function countBy(items, fn) {
+    var c = {};
+    items.forEach(function (x) { (fn(x) || []).forEach(function (k) { c[k] = (c[k] || 0) + 1; }); });
+    return Object.keys(c).map(function (k) { return { k: k, n: c[k] }; }).sort(function (a, b) { return b.n - a.n || a.k.localeCompare(b.k, "es"); });
+  }
+  function platGroup(key) {
+    var g = null;
+    ["movie", "tv"].forEach(function (t) {
+      if (g || !state.meta[t]) return;
+      state.meta[t].groups.forEach(function (x) { if (x.key === key) g = x; });
+    });
+    return g || { key: key, name: PLATFORM_BY_KEY[key].name, logo: null };
+  }
+  function hbars(rows) {
+    var max = rows[0].n;
+    return '<ul class="hbars">' + rows.map(function (r) {
+      return "<li><span class=\"hl\">" + (r.logo || "") + '<span class="lt">' + esc(r.label) + '</span></span><span class="ht"><i style="width:' +
+        Math.max(4, Math.round(r.n / max * 100)) + '%"></i></span><b>' + r.n + "</b></li>";
+    }).join("") + "</ul>";
+  }
+  function vbars(rows) {
+    var max = Math.max.apply(null, rows.map(function (r) { return r.n; }));
+    return '<div class="vbars">' + rows.map(function (r) {
+      return '<div class="vc"><b>' + r.n + '</b><i style="height:' + Math.max(6, Math.round(r.n / max * 90)) + 'px"></i><span>' + esc(r.label) + "</span></div>";
+    }).join("") + "</div>";
+  }
+
+  function summaryHtml(items) {
+    if (!items.length) return emptyHtml("Marca como vistas algunas películas o series y aquí verás tu perfil: plataformas, géneros, duración y décadas.");
+    var movies = items.filter(function (x) { return x.type === "movie"; }), shows = items.length - movies.length;
+    var mins = movies.map(minutesOf).filter(Boolean);
+    var hours = Math.round(mins.reduce(function (a, b) { return a + b; }, 0) / 60);
+    var rated = items.filter(function (x) { return x.r > 0; });
+    var avg = rated.length ? rated.reduce(function (a, x) { return a + x.r; }, 0) / rated.length : 0;
+
+    var genres = countBy(items, function (x) { return x.g; });
+    var loaded = items.every(function (x) { return x.p !== undefined; });
+    var plats = countBy(items, function (x) {
+      var seen = {}, out = [];
+      (x.p || []).forEach(function (p) { var k = pkey(p); if (k && !seen[k]) { seen[k] = true; out.push(k); } });
+      return out;
+    });
+    var buckets = [["Menos de 90", 0, 90], ["90–119", 90, 120], ["120–149", 120, 150], ["150 o más", 150, 9999]].map(function (b) {
+      return { label: b[0] + " min", n: mins.filter(function (m) { return m >= b[1] && m < b[2]; }).length };
+    });
+    var decs = countBy(items, function (x) { return x.y ? [String(x.y < 1970 ? 1960 : Math.floor(x.y / 10) * 10)] : []; })
+      .sort(function (a, b) { return a.k - b.k; }).map(function (d) { return { label: d.k === "1960" ? "Antes de 1970" : d.k + "s", n: d.n }; });
+
+    // Frase de perfil
+    var bits = [];
+    if (genres.length) bits.push("Lo que más ves es <b>" + esc(genres[0].k) + "</b>");
+    if (plats.length && loaded) bits.push((bits.length ? " y suele estar en " : "Lo que ves suele estar en ") + "<b>" + esc(PLATFORM_BY_KEY[plats[0].k].name) + "</b>");
+    var topB = buckets.slice().sort(function (a, b) { return b.n - a.n; })[0];
+    var prof = bits.join("");
+    if (topB && topB.n) prof += (prof ? ". " : "") + "Tus películas suelen durar <b>" + esc(topB.label.replace(" min", "")) + " min</b>";
+    if (prof) prof += ".";
+
+    var movieW = Math.round(movies.length / items.length * 100);
+    var out = '<div class="stats"><div class="stat"><b>' + items.length + "</b><span>Vistas</span></div>" +
+      '<div class="stat"><b>' + (hours || "–") + "</b><span>Horas de cine</span></div>" +
+      '<div class="stat"><b>' + (avg ? avg.toFixed(1) : "–") + "</b><span>Nota media</span></div></div>";
+    if (prof) out += '<div class="card"><h2>Tu perfil</h2><p class="profile">' + prof + "</p></div>";
+    out += '<div class="card"><h2>Películas y series</h2><div class="split" role="img" aria-label="' + movies.length + " películas y " + shows + ' series"><i style="width:' + movieW + '%"></i><i style="width:' + (100 - movieW) + '%"></i></div>' +
+      '<div class="legend"><span><b>' + movies.length + "</b> " + (movies.length === 1 ? "película" : "películas") + "</span><span><b>" + shows + "</b> " + (shows === 1 ? "serie" : "series") + "</span></div></div>";
+
+    if (!loaded) out += '<div class="card"><h2>Plataformas</h2><p class="small">Cargando dónde están tus títulos…</p></div>';
+    else if (plats.length) {
+      out += '<div class="card"><h2>Plataformas</h2>' + hbars(plats.slice(0, 6).map(function (p) {
+        var g = platGroup(p.k);
+        return { label: g.name, n: p.n, logo: logoHtml(g) };
+      })) + '<p class="small">Cuenta dónde está disponible hoy cada título que has visto.</p></div>';
+    }
+    if (genres.length) out += '<div class="card"><h2>Géneros</h2>' + hbars(genres.slice(0, 6).map(function (g) { return { label: g.k, n: g.n }; })) + "</div>";
+    if (mins.length) out += '<div class="card"><h2>Duración de las películas</h2>' + vbars(buckets) + "</div>";
+    if (decs.length) out += '<div class="card"><h2>Por década de estreno</h2>' + vbars(decs) + "</div>";
+    return out;
   }
 
   function renderList(skipEnrich) {
@@ -1096,30 +1263,26 @@
     $("lt-seen").textContent = "Vistas" + (seenItems.length ? " · " + seenItems.length : "");
     $("lt-pending").setAttribute("aria-pressed", String(tab === "pending"));
     $("lt-seen").setAttribute("aria-pressed", String(tab === "seen"));
-    $("only-mine").setAttribute("aria-pressed", String(state.onlyMine));
-    $("wl-tools").hidden = tab !== "pending" || pending.length === 0;
+    $("lt-summary").setAttribute("aria-pressed", String(tab === "summary"));
 
-    var items = tab === "seen" ? seenItems : pending;
-    if (tab === "pending") {
-      items = items.map(function (x, i) {
-        var n = x.type === "tv" && x.next ? nextInfo(x) : null;
-        return { x: x, i: i, d: n ? n.days : Infinity };
-      }).sort(function (a, b) { return a.d === b.d ? a.i - b.i : a.d - b.d; }).map(function (o) { return o.x; });
-    }
-    if (tab === "pending" && state.onlyMine) {
-      items = items.filter(function (f) { return f.p === undefined || isMine(f); });
-    }
-
-    if (items.length === 0) {
-      var msg;
-      if (tab === "seen") msg = "Aún no has marcado nada como visto.";
-      else if (state.list.length === 0) msg = "Todavía no has guardado nada. Pulsa el marcador de una película o serie para guardarla aquí.";
-      else if (pending.length === 0) msg = "No tienes nada pendiente. Lo que ya has visto está en la pestaña Vistas.";
-      else msg = "Ninguno de tus títulos pendientes está en tus plataformas ahora mismo.";
-      $("wl-list").innerHTML = '<li class="empty">' + msg + "</li>";
+    var html;
+    if (tab === "summary") {
+      html = summaryHtml(seenItems);
+    } else if (tab === "seen") {
+      html = seenItems.length ? '<ul class="list">' + seenItems.map(function (f) { return filmHtml(f, true); }).join("") + "</ul>" : emptyHtml("Aún no has marcado nada como visto.");
+    } else if (state.list.length === 0) {
+      html = emptyHtml("Todavía no has guardado nada. Pulsa el marcador de una película o serie para guardarla aquí.");
+    } else if (pending.length === 0) {
+      html = emptyHtml("No tienes nada pendiente. Lo que ya has visto está en la pestaña Vistas.");
     } else {
-      $("wl-list").innerHTML = items.map(function (f) { return filmHtml(f, true); }).join("");
+      // Primero las series con un episodio próximo
+      var sorted = pending.map(function (x, i) {
+        var n = x.type === "tv" && x.next ? nextInfo(x) : null;
+        return { x: x, i: i, d: n && n.days >= 0 ? n.days : Infinity };
+      }).sort(function (a, b) { return a.d === b.d ? a.i - b.i : a.d - b.d; }).map(function (o) { return o.x; });
+      html = pendingHtml(sorted);
     }
+    $("wl-list").innerHTML = html;
     if (!skipEnrich) enrichList();
   }
 
@@ -1350,13 +1513,14 @@
     { id: "bs", title: "Series mejor valoradas", type: "tv", kind: "top" }
   ];
 
-  function pcardHtml(f, showType) {
+  function pcardHtml(f, showType, tag) {
     var key = keyOf(f), saved = isSaved(key), meta = [];
     if (f.r) meta.push('<span class="score">' + Number(f.r).toFixed(1) + "</span>");
     if (f.y) meta.push(String(f.y));
     if (showType === true) meta.push(f.type === "tv" ? "Serie" : "Película");
     return '<li class="pcard' + (key === state.chosen ? " chosen" : "") + '" data-key="' + esc(key) + '"><div class="pc-img">' +
       (isSeen(key) ? '<span class="seen-tag">Vista</span>' : "") + posterHtml(f, true) +
+      (tag ? '<span class="day-tag">' + esc(tag) + "</span>" : "") +
       '<button type="button" class="save" aria-pressed="' + saved + '" aria-label="' + (saved ? "Quitar de mi lista" : "Guardar en mi lista") + '">' + BOOKMARK + "</button></div>" +
       '<button type="button" class="open pc-title">' + esc(f.t) + "</button>" +
       '<p class="meta">' + meta.join(" · ") + "</p></li>";
@@ -1903,7 +2067,6 @@
     updateSearchUI(); render();
   });
 
-  $("only-mine").addEventListener("click", function () { state.onlyMine = !state.onlyMine; renderList(true); });
   $("wl-tabs").addEventListener("click", function (e) {
     var b = e.target.closest("button[data-ltab]");
     if (!b) return;
