@@ -396,14 +396,15 @@
   .pcard { flex: none; width: 128px; scroll-snap-align: start; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
   .pc-img { position: relative; }
   .eye {
-    position: absolute; top: 48px; right: 4px; width: 44px; height: 44px; display: grid; place-items: center;
+    position: absolute; top: 4px; right: 48px; width: 44px; height: 44px; display: grid; place-items: center;
     background: none; border: 0; border-radius: 999px; color: var(--muted); cursor: pointer;
   }
+  .film:has(.eye) .info h3 { padding-right: 92px; }
   .eye svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .eye[aria-pressed="true"] { color: var(--accent); }
   .eye[aria-pressed="true"] circle { fill: currentColor; }
   .pcard .eye {
-    top: 46px; right: 6px; width: 34px; height: 34px; background: rgba(10, 12, 18, 0.62); color: #fff;
+    top: 6px; right: 46px; width: 34px; height: 34px; background: rgba(10, 12, 18, 0.62); color: #fff;
     -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
   }
   .pcard .eye svg { width: 18px; height: 18px; }
