@@ -395,6 +395,19 @@
   .rail::-webkit-scrollbar { display: none; }
   .pcard { flex: none; width: 128px; scroll-snap-align: start; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
   .pc-img { position: relative; }
+  .eye {
+    position: absolute; top: 48px; right: 4px; width: 44px; height: 44px; display: grid; place-items: center;
+    background: none; border: 0; border-radius: 999px; color: var(--muted); cursor: pointer;
+  }
+  .eye svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .eye[aria-pressed="true"] { color: var(--accent); }
+  .eye[aria-pressed="true"] circle { fill: currentColor; }
+  .pcard .eye {
+    top: 46px; right: 6px; width: 34px; height: 34px; background: rgba(10, 12, 18, 0.62); color: #fff;
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  }
+  .pcard .eye svg { width: 18px; height: 18px; }
+  .pcard .eye[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
   .pcard .save {
     top: 6px; right: 6px; width: 34px; height: 34px; background: rgba(10, 12, 18, 0.62); color: #fff;
     -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
@@ -588,6 +601,7 @@
   ];
   var PLATFORM_BY_KEY = {}, LABEL_TO_KEY = {};
   PLATFORMS.forEach(function (d) { PLATFORM_BY_KEY[d.key] = d; LABEL_TO_KEY[d.name] = d.key; });
+  var EYE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
   var BOOKMARK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg>';
 
   // Diferencias entre películas y series en TMDB
@@ -1031,7 +1045,7 @@
   function persistList() {
     var demo = state.mode === "demo";
     save(listKey(), state.list.map(function (x) {
-      var o = { type: x.type, id: x.id, t: x.t, y: x.y, r: x.r, poster: x.poster, g: x.g, seen: x.seen === true };
+      var o = { type: x.type, id: x.id, t: x.t, y: x.y, r: x.r, poster: x.poster, g: x.g, seen: x.seen === true, via: x.via === true };
       if (typeof x.len === "string") o.len = x.len;
       if (demo) o.p = x.p;
       return o;
@@ -1062,18 +1076,44 @@
     afterListChange();
   }
 
-  function toggleSeen(f) {
+  // eye: viene del icono del ojo en un cartel. Si lo marcó así y vuelve a pulsarlo, desaparece de la lista
+  function toggleSeen(f, eye) {
     var key = keyOf(f), i = savedIndex(key);
-    if (i > -1) state.list[i].seen = !state.list[i].seen; else state.list.unshift(snapshot(f, true));
+    if (i > -1) {
+      var x = state.list[i];
+      if (eye && x.seen && x.via) state.list.splice(i, 1); else x.seen = !x.seen;
+    } else {
+      var n = snapshot(f, true); n.via = true;
+      state.list.unshift(n);
+    }
     afterListChange();
+  }
+
+  // Marcador de un cartel: en algo ya visto, lo devuelve a pendientes en lugar de borrarlo
+  function toggleSaveCard(f) {
+    var i = savedIndex(keyOf(f));
+    if (i > -1 && state.list[i].seen) { state.list[i].seen = false; state.list[i].via = false; afterListChange(); }
+    else toggleSave(f);
   }
 
   function syncSaveButtons() {
     Array.prototype.forEach.call(document.querySelectorAll("[data-key] .save"), function (b) {
-      var saved = isSaved(b.closest("[data-key]").getAttribute("data-key"));
+      var key = b.closest("[data-key]").getAttribute("data-key");
+      var saved = isSaved(key) && !isSeen(key);
       b.setAttribute("aria-pressed", String(saved));
       b.setAttribute("aria-label", saved ? "Quitar de mi lista" : "Guardar en mi lista");
     });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-key] .eye"), function (b) {
+      var seen = isSeen(b.closest("[data-key]").getAttribute("data-key"));
+      b.setAttribute("aria-pressed", String(seen));
+      b.setAttribute("aria-label", seen ? "Quitar de vistas" : "Marcar como vista");
+    });
+    // En el Inicio, lo visto desaparece de los carruseles si está activado "ocultar vistas"
+    if (state.hideSeen) {
+      Array.prototype.forEach.call(document.querySelectorAll("#view-home .pcard"), function (c) {
+        if (isSeen(c.getAttribute("data-key"))) c.remove();
+      });
+    }
   }
 
   function pendingCount() { return state.list.filter(function (x) { return !x.seen; }).length; }
@@ -1432,7 +1472,8 @@
       '<div class="badges">' + (seen ? '<span class="badge seen">Vista</span>' : nextBadge(f, inList)) + badgesHtml(f.p) + "</div>" +
       (inList ? '<button type="button" class="seen-btn" data-act="seen">' + (seen ? "Volver a pendientes" : "Marcar como vista") + "</button>" : "") +
       "</div>" +
-      '<button type="button" class="save" aria-pressed="' + saved + '" aria-label="' + (saved ? "Quitar de mi lista" : "Guardar en mi lista") + '">' + BOOKMARK + "</button></li>";
+      '<button type="button" class="save" aria-pressed="' + (saved && !seen) + '" aria-label="' + (saved && !seen ? "Quitar de mi lista" : "Guardar en mi lista") + '">' + BOOKMARK + "</button>" +
+      (inList ? "" : '<button type="button" class="eye" aria-pressed="' + seen + '" aria-label="' + (seen ? "Quitar de vistas" : "Marcar como vista") + '">' + EYE + "</button>") + "</li>";
   }
 
   // Lo que se carga de TMDB (o de los ejemplos) antes de aplicar "ocultar vistas" o "solo en mis plataformas"
@@ -1521,7 +1562,8 @@
     return '<li class="pcard' + (key === state.chosen ? " chosen" : "") + '" data-key="' + esc(key) + '"><div class="pc-img">' +
       (isSeen(key) ? '<span class="seen-tag">Vista</span>' : "") + posterHtml(f, true) +
       (tag ? '<span class="day-tag">' + esc(tag) + "</span>" : "") +
-      '<button type="button" class="save" aria-pressed="' + saved + '" aria-label="' + (saved ? "Quitar de mi lista" : "Guardar en mi lista") + '">' + BOOKMARK + "</button></div>" +
+      '<button type="button" class="save" aria-pressed="' + (saved && !isSeen(key)) + '" aria-label="' + (saved && !isSeen(key) ? "Quitar de mi lista" : "Guardar en mi lista") + '">' + BOOKMARK + "</button>" +
+      '<button type="button" class="eye" aria-pressed="' + isSeen(key) + '" aria-label="' + (isSeen(key) ? "Quitar de vistas" : "Marcar como vista") + '">' + EYE + "</button></div>" +
       '<button type="button" class="open pc-title">' + esc(f.t) + "</button>" +
       '<p class="meta">' + meta.join(" · ") + "</p></li>";
   }
@@ -1999,7 +2041,8 @@
     if (!li) return;
     var f = findFilm(li.getAttribute("data-key"));
     if (!f) return;
-    if (e.target.closest(".save")) toggleSave(f);
+    if (e.target.closest(".save")) toggleSaveCard(f);
+    else if (e.target.closest(".eye")) toggleSeen(f, true);
     else if (e.target.closest(".seen-btn")) toggleSeen(f);
     else openDetail(f);
   }
@@ -2103,7 +2146,9 @@
     if (card) {
       var cf = findFilm(card.getAttribute("data-key"));
       if (!cf) return;
-      if (e.target.closest(".save")) toggleSave(cf); else openDetail(cf);
+      if (e.target.closest(".save")) toggleSaveCard(cf);
+      else if (e.target.closest(".eye")) toggleSeen(cf, true);
+      else openDetail(cf);
       return;
     }
     var b = e.target.closest("button[data-act]");
